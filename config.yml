@@ -1,0 +1,31 @@
+cloud:
+  project: some-project
+  region: europe-west1
+  zone: europe-west1-d
+  bucket: gs://bucket-name/
+model:
+  num-epochs: 20
+  train-batch-size: 100
+  test-batch-size: 100
+  embedding-size: 8
+  first-layer-size: 100
+  num-layers: 10
+  scale-factor: .7
+  train-steps: 1000
+  eval-steps: 500
+  export-format: JSON
+  verbosity: DEBUG
+  label: target # Label column in data set.
+  key: id # The identifier in the data set.
+path:
+  base: ./data/
+  external: external/
+  intermediate: intermediate/
+  processed: processed/
+  raw: raw/
+  models: models/
+  job: job/
+  train: train/
+  test: test/
+  eval: eval/
+  staging: staging/
