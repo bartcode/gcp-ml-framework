@@ -4,9 +4,11 @@ input for a model.
 """
 import tensorflow as tf
 
-from ..utilities import load_config
+from ..utilities.config import config_key
 
-CONFIG = load_config('./config.yml')
+
+def get_metadata():
+    pass
 
 
 # TODO: Allow different file formats than just TFRecords.
@@ -37,7 +39,7 @@ def input_fn(files_name_pattern,
 
     features = iterator.get_next()
 
-    label = features.pop(CONFIG['model']['label'])
+    label = features.pop(config_key('model.label'))
 
     if mode == tf.estimator.ModeKeys.PREDICT:
         return features

@@ -1,9 +1,7 @@
 import tensorflow as tf
 from tensorflow_transform.tf_metadata import dataset_schema
 
-from ..utilities import load_config
-
-CONFIG = load_config('./config.yml')
+from ..utilities.config import config_key
 
 
 def create_wide_and_deep_columns():
@@ -19,7 +17,7 @@ def create_wide_and_deep_columns():
     column_schemas = METADATA.schema.column_schemas
 
     for feature_name in column_schemas:
-        if feature_name == CONFIG['model']['label'] or feature_name in CONFIG['model']['key']:
+        if feature_name == config_key('model.label') or feature_name in config_key('model.key'):
             continue
 
         # Create numerical features

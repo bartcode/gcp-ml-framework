@@ -6,7 +6,7 @@ import json
 import os
 
 from .models.model import train_and_evaluate
-from .utilities import load_config
+from .utilities import config_path, config_key
 
 
 def main():
@@ -14,8 +14,6 @@ def main():
     Main function which handles all arguments.
     :return: None
     """
-    config = load_config('./config.yml')
-
     # pylint: disable=C0103
     parser = argparse.ArgumentParser()
 
@@ -24,13 +22,13 @@ def main():
         '--base_directory',
         help='GCS file or local config to training data',
         nargs='+',
-        default=config['path']['base']
+        default=config_key('path.base')
     )
 
     parser.add_argument(
         '--job-dir',
         help='GCS location to write checkpoints and export models.',
-        default=os.path.join(config['path']['base'], config['path']['models'],
+        default=os.path.join(config_path('path.models'),
                              json.loads(os.environ.get('TF_CONFIG', '{}')).get('task', {}).get('trial', ''))
 
     )
@@ -38,7 +36,7 @@ def main():
     parser.add_argument(
         '--staging-bucket',
         help='GCS staging location.',
-        default=os.path.join(config['cloud']['bucket'], config['path']['staging'])
+        default=os.path.join(config_key('cloud.bucket'), config_key('path.staging'))
     )
 
     parser.add_argument(
@@ -47,60 +45,60 @@ def main():
                 If both --max-steps and --num-epochs are specified,
                 the training job will run for --max-steps or --num-epochs,
                 whichever occurs first. If unspecified will run for --max-steps.""",
-        default=config['model']['num-epochs']
+        default=config_key('model.num-epochs')
     )
 
     parser.add_argument(
         '--train-files',
         help='Path to training tfrecords',
-        default=os.path.join(config['path']['base'], config['path']['processed'], 'train.tfrecords')
+        default=os.path.join(config_path('path.processed'), 'train.tfrecords')
     )
 
     parser.add_argument(
         '--eval-files',
         help='Path to evaluation tfrecords',
-        default=os.path.join(config['path']['base'], config['path']['processed'], 'eval.tfrecords')
+        default=os.path.join(config_path('path.processed'), 'eval.tfrecords')
     )
 
     parser.add_argument(
         '--train-batch-size',
         help='Batch size for training steps',
-        default=config['model']['train-batch-size'],
+        default=config_key('model.train-batch-size'),
         type=int
     )
 
     parser.add_argument(
         '--eval-batch-size',
         help='Batch size for evaluation steps',
-        default=config['model']['eval-batch-size'],
+        default=config_key('model.eval-batch-size'),
         type=int
     )
 
     parser.add_argument(
         '--embedding-size',
         help='Number of embedding dimensions for categorical columns',
-        default=config['model']['embedding-size'],
+        default=config_key('model.embedding-size'),
         type=int
     )
 
     parser.add_argument(
         '--first-layer-size',
         help='Number of nodes in the first layer of the DNN',
-        default=config['model']['first-layer-size'],
+        default=config_key('model.first-layer-size'),
         type=int
     )
 
     parser.add_argument(
         '--num-layers',
         help='Number of layers in the DNN',
-        default=config['model']['num-layers'],
+        default=config_key('model.num-layers'),
         type=int
     )
 
     parser.add_argument(
         '--scale-factor',
         help='How quickly should the size of the layers in the DNN decay',
-        default=config['model']['scale-factor'],
+        default=config_key('model.scale-factor'),
         type=float
     )
 
@@ -108,14 +106,14 @@ def main():
         '--train-steps',
         help="""Steps to run the training job for. If --num-epochs is not specified,
                 this must be. Otherwise the training job will run indefinitely.""",
-        default=config['model']['train-steps'],
+        default=config_key('model.train-steps'),
         type=int
     )
 
     parser.add_argument(
         '--eval-steps',
         help='Number of steps to run evaluation for at each checkpoint',
-        default=config['model']['eval-steps'],
+        default=config_key('model.eval-steps'),
         type=int
     )
 
@@ -123,18 +121,16 @@ def main():
         '--export-format',
         help='The input format of the exported SavedModel binary',
         choices=['JSON'],
-        default=config['model']['export-format'].upper()
+        default=config_key('model.export-format').upper()
     )
 
     parser.add_argument(
         '--verbosity',
         choices=['DEBUG', 'ERROR', 'FATAL', 'INFO', 'WARN'],
-        default=config['model']['verbosity'].upper()
+        default=config_key('model.verbosity').upper()
     )
 
-    arguments = parser.parse_args()
-
-    train_and_evaluate(arguments)
+    train_and_evaluate(parser.parse_args())
 
 
 if __name__ == '__main__':

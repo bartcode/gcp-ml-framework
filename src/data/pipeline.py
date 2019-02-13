@@ -10,9 +10,7 @@ from datetime import datetime
 import apache_beam as beam
 import tensorflow_transform.beam as tft_beam
 
-from ..utilities import load_config
-
-CONFIG = load_config('./config.yml')
+from ..utilities.config import config_key, config_path
 
 
 def get_pipeline_options():
@@ -30,13 +28,13 @@ def get_pipeline_options():
         options = dict(
             runner='DataflowRunner',
             job_name=('{project}-{timestamp}'.format(
-                project=CONFIG['gcp']['project'], timestamp=datetime.now().strftime('%Y%m%d%H%M%S')
+                project=config_key('gcp.project'), timestamp=datetime.now().strftime('%Y%m%d%H%M%S')
             )),
-            staging_location=os.path.join(CONFIG['path']['base'], CONFIG['path']['staging']),
-            temp_location=os.path.join(CONFIG['path']['base'], CONFIG['path']['temp']),
-            region=CONFIG['gcp']['region'],
-            project=CONFIG['gcp']['project'],
-            zone=CONFIG['gcp']['zone'],
+            staging_location=config_path('path.staging'),
+            temp_location=config_path('path.temp'),
+            region=config_key('gcp.region'),
+            project=config_key('gcp.project'),
+            zone=config_key('gcp.zone'),
             autoscaling_algorithm='THROUGHPUT_BASED',
             save_main_session=True,
             setup_file='./setup.py'

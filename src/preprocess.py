@@ -1,5 +1,5 @@
 """
-Preprocesses data using Apache Beam. This also allows for
+Pre-processes data using Apache Beam. This also allows for
 running on Google Cloud Dataflow.
 """
 from .data.pipeline import DataPipeline

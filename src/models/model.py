@@ -3,13 +3,14 @@ Create an estimator.
 """
 from __future__ import print_function
 
+import json
+import os
+
 import tensorflow as tf
 
-from ..utilities import load_config
+from ..utilities.config import config_key
 from ..features.model import create_wide_and_deep_columns
 from ..data.input import input_fn, json_serving_input_fn
-
-CONFIG = load_config('./config.yml')
 
 
 def get_session_config():
@@ -60,7 +61,7 @@ def build_estimator(config, hidden_units=None):
     )
 
     # Forward key instances, such that predictions can be matched with a specific key.
-    for key in CONFIG['model']['key']:
+    for key in config_key('model.key'):
         estimator = tf.contrib.estimator.forward_features(estimator, key)
 
     estimator = tf.contrib.estimator.add_metrics(estimator, metric_rmse)
@@ -81,7 +82,7 @@ def train_and_evaluate(args):
         max_steps=args.train_steps
     )
 
-    exporter = tf.estimator.FinalExporter('model', json_serving_input_fn)
+    exporter = tf.estimator.FinalExporter(config_key('model.name'), json_serving_input_fn)
 
     eval_spec = tf.estimator.EvalSpec(
         lambda: input_fn(args.eval_files,

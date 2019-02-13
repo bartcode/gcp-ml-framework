@@ -4,6 +4,7 @@ cloud:
   zone: europe-west1-d
   bucket: gs://bucket-name/
 model:
+  name: model
   num-epochs: 20
   train-batch-size: 100
   test-batch-size: 100
