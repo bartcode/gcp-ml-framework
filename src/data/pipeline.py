@@ -58,14 +58,14 @@ def debug(element):
 
 def partition_train_eval(*args):
     """
-    Partitions the dataset into a train
+    Partitions the data set into a train
     :param args: Nothing happens with this.
     :return: 1 or 0: whether the record will be
     """
     return int(random.uniform(0, 1) >= .8)
 
 
-class DataPipeline:
+class DataPipeline(object):
     """
     Main class for a data pipeline.
     """
@@ -85,13 +85,13 @@ class DataPipeline:
         self._context = tft_beam.Context(temp_dir=temporary_dir)
 
     @staticmethod
-    def train_test_split(training):
+    def train_test_split(training_set):
         """
-        Split dataset 80/20.
-        :param training: Transformed training set
+        Split data set 80/20.
+        :param training_set: Transformed training set
         :return: Tuple of PCollections (train, eval)
         """
-        return training | 'TrainTestSplit' >> beam.Partition(partition_train_eval, 2)
+        return training_set | 'TrainTestSplit' >> beam.Partition(partition_train_eval, 2)
 
     def execute(self):
         """
@@ -100,7 +100,7 @@ class DataPipeline:
         """
         pass
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type=None, exc_val=None, exc_tb=None):
         """
         Remove context and execute pipeline.
         :param exc_type:
@@ -108,5 +108,5 @@ class DataPipeline:
         :param exc_tb:
         :return: None
         """
-        self._context.__exit__()
-        self._pipeline.__exit__()
+        self._context.__exit__(None, None, None)
+        self._pipeline.__exit__(None, None, None)

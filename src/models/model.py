@@ -16,7 +16,7 @@ from ..data.input import input_fn, json_serving_input_fn
 def get_session_config():
     """
     Determines tf.ConfigProto from environment variables.
-    :return: Tensorflow configuration (tf.ConfigProto).
+    :return: TensorFlow configuration (tf.ConfigProto).
     """
     tf_config = json.loads(os.environ.get('TF_CONFIG', '{}'))
 

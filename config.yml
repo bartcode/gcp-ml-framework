@@ -30,3 +30,4 @@ path:
   test: test/
   eval: eval/
   staging: staging/
+  train-format: csv # [csv, tfrecords]

@@ -1,5 +1,5 @@
 """
-Methods that preprocess the data using Tensorflow Transform
+Methods that pre-process the data using TensorFlow Transform
 """
 import tensorflow as tf
 import tensorflow_transform as tft
