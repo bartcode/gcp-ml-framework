@@ -27,7 +27,7 @@ def _get_single_train_file():
 def get_metadata():
     """
     Determines metadata of the input data.
-    :return:
+    :return: DatasetMetadata
     """
 
     def dtype_to_metadata(dtype):
@@ -39,8 +39,8 @@ def get_metadata():
         if is_string_dtype(dtype):
             return tf.FixedLenFeature([], tf.string)
 
-        """By commenting the two lines below, every column
-        is forced to be float32 instead of int64."""
+        # # By commenting the two lines below, every column
+        # # is forced to be float32 instead of int64.
         # if is_int64_dtype(dtype):
         #     return tf.FixedLenFeature([], tf.int64)
 
@@ -160,11 +160,9 @@ def input_fn(files_name_pattern,
     """
     input_fn_reference = input_fn_csv if input_format == 'csv' else input_fn_tfrecords
 
-    data_set = input_fn_reference(files_name_pattern, num_epochs, batch_size, mode, **kwargs)
-
-    iterator = data_set.make_one_shot_iterator()
-
-    features = iterator.get_next()
+    features = input_fn_reference(files_name_pattern, num_epochs, batch_size, mode, **kwargs) \
+        .make_one_shot_iterator() \
+        .get_next()
 
     label = features.pop(config_key('model.label'))
 
