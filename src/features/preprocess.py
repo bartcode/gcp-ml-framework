@@ -9,7 +9,7 @@ from ..utilities.config import config_key
 
 def preprocessor(element):
     """
-    Applies TensorFlow Transform methods on vectors.
+    Applies TensorFlow Transform methods to vectors.
     :param element: Input vectors.
     :return: Transformed inputs.
     """

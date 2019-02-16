@@ -30,6 +30,8 @@ def get_session_config():
     except KeyError:
         pass
 
+    return tf.ConfigProto()
+
 
 def metric_rmse(labels, predictions):
     """
@@ -86,7 +88,10 @@ def train_and_evaluate(args):
 
     eval_spec = tf.estimator.EvalSpec(
         lambda: input_fn(args.eval_files,
-                         mode=tf.estimator.ModeKeys.EVAL),
+                         num_epochs=args.num_epochs,
+                         batch_size=args.batch_size,
+                         mode=tf.estimator.ModeKeys.EVAL,
+                         input_format=args.input_format),
         steps=args.eval_steps,
         exporters=[exporter],
         name='eval',
@@ -96,7 +101,7 @@ def train_and_evaluate(args):
     run_config = tf.estimator.RunConfig(
         session_config=get_session_config(),
         save_checkpoints_secs=30,
-        save_summary_steps=10000,
+        save_summary_steps=5000,
         keep_checkpoint_max=5
     ).replace(model_dir=args.job_dir)
 

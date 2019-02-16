@@ -50,14 +50,20 @@ def main():
 
     parser.add_argument(
         '--train-files',
-        help='Path to training tfrecords',
-        default=os.path.join(config_path('path.processed'), 'train.tfrecords')
+        help='Path to training file',
+        default=os.path.join(config_path('path.processed', 'path.train-files'))
     )
 
     parser.add_argument(
         '--eval-files',
-        help='Path to evaluation tfrecords',
-        default=os.path.join(config_path('path.processed'), 'eval.tfrecords')
+        help='Path to evaluation file',
+        default=os.path.join(config_path('path.processed', 'path.eval-files'))
+    )
+
+    parser.add_argument(
+        '--test-files',
+        help='Path to test file',
+        default=os.path.join(config_path('path.processed', 'path.test-files'))
     )
 
     parser.add_argument(
@@ -118,8 +124,15 @@ def main():
     )
 
     parser.add_argument(
+        '--input-format',
+        help='The input format of the train and evaluation sets.',
+        choices=['csv', 'tfrecords'],
+        default=config_key('model.input-format').upper()
+    )
+
+    parser.add_argument(
         '--export-format',
-        help='The input format of the exported SavedModel binary',
+        help='The format of the exported SavedModel binary',
         choices=['JSON'],
         default=config_key('model.export-format').upper()
     )

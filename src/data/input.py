@@ -16,13 +16,6 @@ def get_metadata():
     pass
 
 
-def csv_default_value(dtype):
-    if dtype.name in ['object', 'bool']:
-        return ''
-    else:
-        return 0.  # dtype.type()
-
-
 def input_fn_csv(files_name_pattern, num_epochs, batch_size, mode, headers=None, **kwargs):
     """
     Input functions which parses CSV files.
@@ -33,6 +26,17 @@ def input_fn_csv(files_name_pattern, num_epochs, batch_size, mode, headers=None,
     :param headers: Headers to use for the data.
     :return: features and label
     """
+    def csv_default_value(dtype_check):
+        """
+        Creates a list of default values for each line of the CSV.
+        :param dtype_check: dtype to convert.
+        :return: List of default values (list of list)
+        """
+        if dtype_check.name in ['object', 'bool']:
+            return ''
+
+        return 0.  # dtype.type()
+
     sample_file = files_name_pattern[0] if isinstance(files_name_pattern, list) else files_name_pattern
 
     dtypes = kwargs.get(pd.read_csv(sample_file, nrows=1000, sep=kwargs.get('field_delim', ',')).dtypes)
@@ -55,7 +59,7 @@ def input_fn_csv(files_name_pattern, num_epochs, batch_size, mode, headers=None,
         .batch(batch_size=batch_size) \
         .repeat(count=num_epochs) \
         .shuffle(buffer_size=1 + (batch_size * 2) if mode == tf.estimator.ModeKeys.TRAIN else None) \
-        .map(lambda x: dict(zip(header_list, x)))
+        .map(lambda x: dict(zip(header_list, x)))  # Map list to dictionary.
 
 
 def input_fn_tfrecords(files_name_pattern, num_epochs, batch_size, mode):
@@ -83,7 +87,7 @@ def input_fn(files_name_pattern,
              num_epochs=None,
              batch_size=200,
              mode=tf.estimator.ModeKeys.TRAIN,
-             input_type='tfrecords',
+             input_format='tfrecords',
              **kwargs):
     """
     General input function which parses csv, json, or tfrecords.
@@ -95,7 +99,7 @@ def input_fn(files_name_pattern,
     :param kwargs: Other arguments to the input functions.
     :return: features and label
     """
-    input_fn_reference = input_fn_csv if input_type == 'csv' else input_fn_tfrecords
+    input_fn_reference = input_fn_csv if input_format == 'csv' else input_fn_tfrecords
 
     data_set = input_fn_reference(files_name_pattern, num_epochs, batch_size, mode, **kwargs)
 

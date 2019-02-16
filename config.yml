@@ -15,6 +15,7 @@ model:
   train-steps: 1000
   eval-steps: 500
   export-format: JSON
+  input-format: csv # [csv, tfrecords]
   verbosity: DEBUG
   label: target # Label column in data set.
   key: id # The identifier in the data set.
@@ -26,8 +27,10 @@ path:
   raw: raw/
   models: models/
   job: job/
-  train: train/
-  test: test/
-  eval: eval/
+  train-files:
+    - train.csv
+  test-files:
+    - test.csv
+  eval-files:
+    - eval.csv
   staging: staging/
-  train-format: csv # [csv, tfrecords]

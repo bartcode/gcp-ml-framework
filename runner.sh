@@ -6,7 +6,7 @@ PYTHON=venv/bin/python
 
 JOB_NAME=elo_predict_${DATE}
 
-if [[ ${1} == "gcp" ]] || [[ ${1} == "cloud" ]]; then
+if [[ ${1} == "cloud" ]]; then
     export EXECUTOR=cloud
 else
     export EXECUTOR=local

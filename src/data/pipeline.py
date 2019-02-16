@@ -43,7 +43,7 @@ def get_pipeline_options():
     return options
 
 
-def debug(element):
+def pdebug(element):
     """
     Can be used in beam.Map() to see the current element in the pipeline (only when executed locally).
     :param element: Element in pipeline to debug
@@ -62,6 +62,7 @@ def partition_train_eval(*args):
     :param args: Nothing happens with this.
     :return: 1 or 0: whether the record will be
     """
+    # pylint: disable=unused-argument
     return int(random.uniform(0, 1) >= .8)
 
 
