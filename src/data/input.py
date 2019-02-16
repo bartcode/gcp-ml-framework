@@ -2,10 +2,14 @@
 Contains methods that transform the data in such a way that it becomes
 input for a model.
 """
-import tensorflow as tf
-import pandas as pd
+from glob import glob
 
-from ..utilities.config import config_key
+import tensorflow as tf
+from tensorflow_transform.tf_metadata import metadata_io, dataset_metadata, dataset_schema
+import pandas as pd
+from pandas.api.types import is_string_dtype  # , is_int64_dtype
+
+from ..utilities.config import config_key, config_path
 
 
 def get_metadata():
@@ -13,7 +17,46 @@ def get_metadata():
     Determines metadata of the input data.
     :return:
     """
-    pass
+
+    def dtype_to_metadata(dtype):
+        """
+        Converts Pandas Dataframe dtype to TF dataset metadata.
+        :param dtype: Pandas dtype.
+        :return: tf.FixedLenFeature with corresponding data type.
+        """
+        if is_string_dtype(dtype):
+            return tf.FixedLenFeature([], tf.string)
+
+        """By commenting the two lines below, every column
+        is forced to be float32 instead of int64."""
+        # if is_int64_dtype(dtype):
+        #     return tf.FixedLenFeature([], tf.int64)
+
+        return tf.FixedLenFeature([], tf.float32)
+
+    if config_key('model.input-format') == 'tfrecords':
+        return metadata_io.read_metadata(config_key('path.metadata'))
+
+    try:
+        # It's actually best to define the metadata schema manually,
+        # but this is a good start.
+        train_file_config = config_path('path.train-files')
+
+        train_file = glob(train_file_config[0])[0] \
+            if isinstance(train_file_config, list) \
+            else glob(train_file_config)[0]
+
+        return dataset_metadata.DatasetMetadata(
+            dataset_schema.from_feature_spec({
+                name: dtype_to_metadata(dtype)
+                for name, dtype in pd.read_csv(train_file,
+                                               nrows=1000,
+                                               sep=config_key('path.field-delim')).dtypes.to_dict().items()
+            }))
+    except KeyError:
+        return dataset_metadata.DatasetMetadata(
+            dataset_metadata.DatasetMetadata(dataset_schema.from_feature_spec({}))
+        )
 
 
 def input_fn_csv(files_name_pattern, num_epochs, batch_size, mode, headers=None, **kwargs):
@@ -26,6 +69,7 @@ def input_fn_csv(files_name_pattern, num_epochs, batch_size, mode, headers=None,
     :param headers: Headers to use for the data.
     :return: features and label
     """
+
     def csv_default_value(dtype_check):
         """
         Creates a list of default values for each line of the CSV.
@@ -39,21 +83,23 @@ def input_fn_csv(files_name_pattern, num_epochs, batch_size, mode, headers=None,
 
     sample_file = files_name_pattern[0] if isinstance(files_name_pattern, list) else files_name_pattern
 
-    dtypes = kwargs.get(pd.read_csv(sample_file, nrows=1000, sep=kwargs.get('field_delim', ',')).dtypes)
+    dtypes = kwargs.get(pd.read_csv(sample_file, nrows=1000, sep=config_key('field_delim')).dtypes)
 
     default_values = [[csv_default_value(dtype)] for dtype in dtypes]
 
     header_list = headers if headers else list(range(len(default_values)))
 
-    data_set = tf.data.experimental.CsvDataset(files_name_pattern,
-                                               default_values,
-                                               compression_type=kwargs.get('compression_type', None),
-                                               buffer_size=kwargs.get('buffer_size', None),
-                                               header=kwargs.get('header', True),
-                                               field_delim=kwargs.get('field_delim', ','),
-                                               use_quote_delim=kwargs.get('use_quote_delim', True),
-                                               na_value=kwargs.get('na_value', ''),
-                                               select_cols=kwargs.get('select_cols', None))
+    data_set = tf.data.experimental.CsvDataset(
+        filenames=files_name_pattern,
+        record_defaults=default_values,
+        compression_type=kwargs.get('compression_type', None),
+        buffer_size=kwargs.get('buffer_size', None),
+        header=kwargs.get('header', True),
+        field_delim=kwargs.get('field_delim', ','),
+        use_quote_delim=kwargs.get('use_quote_delim', True),
+        na_value=kwargs.get('na_value', ''),
+        select_cols=kwargs.get('select_cols', None)
+    )
 
     return data_set \
         .batch(batch_size=batch_size) \
@@ -74,7 +120,7 @@ def input_fn_tfrecords(files_name_pattern, num_epochs, batch_size, mode):
     return tf.contrib.data.make_batched_features_dataset(
         file_pattern=files_name_pattern,
         batch_size=batch_size,
-        features=get_metadata().schema.as_feature_spec(),  # This doesn't work yet.
+        features=get_metadata().schema.as_feature_spec(),
         reader=tf.data.TFRecordDataset,
         num_epochs=num_epochs,
         shuffle=True if mode == tf.estimator.ModeKeys.TRAIN else False,
@@ -95,7 +141,7 @@ def input_fn(files_name_pattern,
     :param num_epochs: Number of epochs.
     :param batch_size: Batch size.
     :param mode: Input function mode.
-    :param input_type: Input type: csv or tfrecords
+    :param input_format: Input type: csv or tfrecords
     :param kwargs: Other arguments to the input functions.
     :return: features and label
     """
@@ -121,11 +167,10 @@ def json_serving_input_fn():
     """
     inputs = {}
 
-    # TODO: Add metadata.
-    # for feature, value in METADATA.schema.column_schemas.items():
-    #     inputs[feature] = tf.placeholder(
-    #         shape=[None],
-    #         dtype=value.domain.dtype
-    #     )
+    for feature, value in get_metadata().schema.column_schemas.items():
+        inputs[feature] = tf.placeholder(
+            shape=[None],
+            dtype=value.domain.dtype
+        )
 
     return tf.estimator.export.ServingInputReceiver(inputs, inputs)

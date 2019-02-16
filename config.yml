@@ -24,13 +24,15 @@ path:
   external: external/
   intermediate: intermediate/
   processed: processed/
+  metadata: processed/metadata/
   raw: raw/
   models: models/
   job: job/
+  field-delim: ","
   train-files:
-    - train.csv
+    - processed/train.csv
   test-files:
-    - test.csv
+    - processed/test.csv
   eval-files:
-    - eval.csv
+    - processed/eval.csv
   staging: staging/

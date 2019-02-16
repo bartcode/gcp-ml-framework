@@ -80,7 +80,10 @@ def train_and_evaluate(args):
     train_spec = tf.estimator.TrainSpec(
         lambda: input_fn(args.train_files,
                          num_epochs=args.num_epochs,
-                         batch_size=args.train_batch_size),
+                         batch_size=args.train_batch_size,
+                         mode=tf.estimator.ModeKeys.TRAIN,
+                         input_format=args.input_format,
+                         field_delim=args.field_delim),
         max_steps=args.train_steps
     )
 
@@ -91,7 +94,8 @@ def train_and_evaluate(args):
                          num_epochs=args.num_epochs,
                          batch_size=args.batch_size,
                          mode=tf.estimator.ModeKeys.EVAL,
-                         input_format=args.input_format),
+                         input_format=args.input_format,
+                         field_delim=args.field_delim),
         steps=args.eval_steps,
         exporters=[exporter],
         name='eval',

@@ -41,10 +41,10 @@ def main():
 
     parser.add_argument(
         '--num-epochs',
-        help="""Maximum number of training data epochs on which to train.
-                If both --max-steps and --num-epochs are specified,
-                the training job will run for --max-steps or --num-epochs,
-                whichever occurs first. If unspecified will run for --max-steps.""",
+        help=('Maximum number of training data epochs on which to train.\n'
+              'If both --max-steps and --num-epochs are specified,\n'
+              'the training job will run for --max-steps or --num-epochs,\n'
+              'whichever occurs first. If unspecified will run for --max-steps.'),
         default=config_key('model.num-epochs')
     )
 

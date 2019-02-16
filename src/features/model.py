@@ -16,7 +16,6 @@ def create_wide_and_deep_columns():
     wide_columns = []
     deep_columns = []
 
-    # TODO: Fix METADATA reference.
     column_schemas = get_metadata().schema.column_schemas
 
     for feature_name in column_schemas:
