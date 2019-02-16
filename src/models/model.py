@@ -63,7 +63,9 @@ def build_estimator(config, hidden_units=None):
     )
 
     # Forward key instances, such that predictions can be matched with a specific key.
-    for key in config_key('model.key'):
+    key = config_key('model.key')
+
+    if key:
         estimator = tf.contrib.estimator.forward_features(estimator, key)
 
     estimator = tf.contrib.estimator.add_metrics(estimator, metric_rmse)
@@ -82,8 +84,7 @@ def train_and_evaluate(args):
                          num_epochs=args.num_epochs,
                          batch_size=args.train_batch_size,
                          mode=tf.estimator.ModeKeys.TRAIN,
-                         input_format=args.input_format,
-                         field_delim=args.field_delim),
+                         input_format=args.input_format),
         max_steps=args.train_steps
     )
 
@@ -92,10 +93,9 @@ def train_and_evaluate(args):
     eval_spec = tf.estimator.EvalSpec(
         lambda: input_fn(args.eval_files,
                          num_epochs=args.num_epochs,
-                         batch_size=args.batch_size,
+                         batch_size=args.eval_batch_size,
                          mode=tf.estimator.ModeKeys.EVAL,
-                         input_format=args.input_format,
-                         field_delim=args.field_delim),
+                         input_format=args.input_format),
         steps=args.eval_steps,
         exporters=[exporter],
         name='eval',

@@ -12,6 +12,18 @@ from pandas.api.types import is_string_dtype  # , is_int64_dtype
 from ..utilities.config import config_key, config_path
 
 
+def _get_single_train_file():
+    """
+    Obtain a single file path used for training.
+    :return: File path
+    """
+    train_file_config = config_path('path.train-files')
+
+    return glob(train_file_config[0])[0] \
+        if isinstance(train_file_config, list) \
+        else glob(train_file_config)[0]
+
+
 def get_metadata():
     """
     Determines metadata of the input data.
@@ -40,16 +52,10 @@ def get_metadata():
     try:
         # It's actually best to define the metadata schema manually,
         # but this is a good start.
-        train_file_config = config_path('path.train-files')
-
-        train_file = glob(train_file_config[0])[0] \
-            if isinstance(train_file_config, list) \
-            else glob(train_file_config)[0]
-
         return dataset_metadata.DatasetMetadata(
             dataset_schema.from_feature_spec({
                 name: dtype_to_metadata(dtype)
-                for name, dtype in pd.read_csv(train_file,
+                for name, dtype in pd.read_csv(_get_single_train_file(),
                                                nrows=1000,
                                                sep=config_key('path.field-delim')).dtypes.to_dict().items()
             }))
@@ -59,7 +65,7 @@ def get_metadata():
         )
 
 
-def input_fn_csv(files_name_pattern, num_epochs, batch_size, mode, headers=None, **kwargs):
+def input_fn_csv(files_name_pattern, num_epochs, batch_size, mode, **kwargs):
     """
     Input functions which parses CSV files.
     :param files_name_pattern: File name to TFRecords.
@@ -81,13 +87,13 @@ def input_fn_csv(files_name_pattern, num_epochs, batch_size, mode, headers=None,
 
         return 0.  # dtype.type()
 
-    sample_file = files_name_pattern[0] if isinstance(files_name_pattern, list) else files_name_pattern
-
-    dtypes = kwargs.get(pd.read_csv(sample_file, nrows=1000, sep=config_key('field_delim')).dtypes)
+    dtypes = pd.read_csv(_get_single_train_file(), nrows=1000, sep=config_key('path.field-delim')).dtypes
 
     default_values = [[csv_default_value(dtype)] for dtype in dtypes]
 
-    header_list = headers if headers else list(range(len(default_values)))
+    header_list = dtypes.index.tolist() \
+        if dtypes.index.tolist() \
+        else list(range(len(default_values)))
 
     data_set = tf.data.experimental.CsvDataset(
         filenames=files_name_pattern,
@@ -95,17 +101,24 @@ def input_fn_csv(files_name_pattern, num_epochs, batch_size, mode, headers=None,
         compression_type=kwargs.get('compression_type', None),
         buffer_size=kwargs.get('buffer_size', None),
         header=kwargs.get('header', True),
-        field_delim=kwargs.get('field_delim', ','),
+        field_delim=config_key('path.field-delim'),
         use_quote_delim=kwargs.get('use_quote_delim', True),
         na_value=kwargs.get('na_value', ''),
         select_cols=kwargs.get('select_cols', None)
     )
 
+    if mode == tf.estimator.ModeKeys.TRAIN:
+        return data_set \
+            .batch(batch_size=batch_size) \
+            .repeat(count=num_epochs) \
+            .shuffle(buffer_size=1 + (batch_size * 2)) \
+            .map(lambda *x: dict(zip(header_list, x)))  # Map list to dictionary.
+
+    # Eval mode
     return data_set \
         .batch(batch_size=batch_size) \
         .repeat(count=num_epochs) \
-        .shuffle(buffer_size=1 + (batch_size * 2) if mode == tf.estimator.ModeKeys.TRAIN else None) \
-        .map(lambda x: dict(zip(header_list, x)))  # Map list to dictionary.
+        .map(lambda *x: dict(zip(header_list, x)))  # Map list to dictionary.
 
 
 def input_fn_tfrecords(files_name_pattern, num_epochs, batch_size, mode):
@@ -117,7 +130,7 @@ def input_fn_tfrecords(files_name_pattern, num_epochs, batch_size, mode):
     :param mode: Input function mode.
     :return: features and label.
     """
-    return tf.contrib.data.make_batched_features_dataset(
+    return tf.data.experimental.make_batched_features_dataset(
         file_pattern=files_name_pattern,
         batch_size=batch_size,
         features=get_metadata().schema.as_feature_spec(),
@@ -133,7 +146,7 @@ def input_fn(files_name_pattern,
              num_epochs=None,
              batch_size=200,
              mode=tf.estimator.ModeKeys.TRAIN,
-             input_format='tfrecords',
+             input_format=config_key('model.input-format'),
              **kwargs):
     """
     General input function which parses csv, json, or tfrecords.

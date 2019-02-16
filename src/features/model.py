@@ -19,7 +19,7 @@ def create_wide_and_deep_columns():
     column_schemas = get_metadata().schema.column_schemas
 
     for feature_name in column_schemas:
-        if feature_name == config_key('model.label') or feature_name in config_key('model.key'):
+        if feature_name in [config_key('model.label'), config_key('model.key')]:
             continue
 
         # Create numerical features
