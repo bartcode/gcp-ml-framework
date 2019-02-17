@@ -110,8 +110,8 @@ def main():
 
     parser.add_argument(
         '--train-steps',
-        help="""Steps to run the training job for. If --num-epochs is not specified,
-                this must be. Otherwise the training job will run indefinitely.""",
+        help=('Steps to run the training job for. If --num-epochs is not specified,\n'
+              '                this must be. Otherwise the training job will run indefinitely.'),
         default=config_key('model.train-steps'),
         type=int
     )

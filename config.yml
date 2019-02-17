@@ -5,21 +5,22 @@ cloud:
   bucket: gs://bucket-name/
 model:
   name: model
-  num-epochs: 20
+  num-epochs: 10
   train-batch-size: 100
   eval-batch-size: 100
   test-batch-size: 100
   embedding-size: 8
-  first-layer-size: 100
-  num-layers: 10
+  first-layer-size: 300
+  num-layers: 4
   scale-factor: .7
+  dropout: .25
   train-steps: 1000
-  eval-steps: 500
+  eval-steps: 100
   export-format: JSON
   input-format: csv # [csv, tfrecords]
   verbosity: DEBUG
   label: y # Label column in data set.
-  key: false # The identifier in the data set.
+  key: false # The identifier in the data set (false if not available).
 path:
   base: ./data/
   external: external/

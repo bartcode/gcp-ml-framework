@@ -59,7 +59,7 @@ def build_estimator(config, hidden_units=None):
         linear_feature_columns=wide_feature_columns,
         dnn_feature_columns=deep_feature_columns,
         dnn_hidden_units=hidden_units or [1024, 512, 256, 128, 64, 32],
-        dnn_dropout=.4,
+        dnn_dropout=config_key('model.dropout') or .25,
     )
 
     # Forward key instances, such that predictions can be matched with a specific key.
@@ -79,9 +79,11 @@ def train_and_evaluate(args):
     :param args: Arguments for model
     :return: train_and_evaluate
     """
+    tf.logging.set_verbosity(args.verbosity)
+
     train_spec = tf.estimator.TrainSpec(
         lambda: input_fn(args.train_files,
-                         num_epochs=args.num_epochs,
+                         # num_epochs=args.num_epochs,
                          batch_size=args.train_batch_size,
                          mode=tf.estimator.ModeKeys.TRAIN,
                          input_format=args.input_format),
@@ -99,7 +101,7 @@ def train_and_evaluate(args):
         steps=args.eval_steps,
         exporters=[exporter],
         name='eval',
-        throttle_secs=30
+        throttle_secs=30  # Seconds until next evaluation.
     )
 
     run_config = tf.estimator.RunConfig(
@@ -107,7 +109,7 @@ def train_and_evaluate(args):
         save_checkpoints_secs=30,
         save_summary_steps=5000,
         keep_checkpoint_max=5
-    ).replace(model_dir=args.job_dir)
+    ).replace(model_dir=os.path.join(args.job_dir, config_key('model.name')))
 
     estimator = build_estimator(
         config=run_config,

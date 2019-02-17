@@ -160,9 +160,9 @@ def input_fn(files_name_pattern,
     """
     input_fn_reference = input_fn_csv if input_format == 'csv' else input_fn_tfrecords
 
-    features = input_fn_reference(files_name_pattern, num_epochs, batch_size, mode, **kwargs) \
-        .make_one_shot_iterator() \
-        .get_next()
+    input_ref = input_fn_reference(files_name_pattern, num_epochs, batch_size, mode, **kwargs)
+    iterator = input_ref.make_one_shot_iterator()
+    features = iterator.get_next()
 
     label = features.pop(config_key('model.label'))
 
@@ -177,11 +177,13 @@ def json_serving_input_fn():
     Build the serving inputs.
     """
     inputs = {}
+    label = config_key('model.label')
 
     for feature, value in get_metadata().schema.column_schemas.items():
-        inputs[feature] = tf.placeholder(
-            shape=[None],
-            dtype=value.domain.dtype
-        )
+        if feature != label:
+            inputs[feature] = tf.placeholder(
+                shape=[None],
+                dtype=value.domain.dtype
+            )
 
     return tf.estimator.export.ServingInputReceiver(inputs, inputs)

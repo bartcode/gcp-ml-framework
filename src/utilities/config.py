@@ -41,7 +41,7 @@ def config_key(path_key, config=load_config('./config.yml')):
 
         return config_key(sub_path, config[base])
 
-    return config[path_key]
+    return config.get(path_key, None)
 
 
 def config_path(*args):
