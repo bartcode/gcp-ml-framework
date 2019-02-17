@@ -143,10 +143,10 @@ def input_fn_tfrecords(files_name_pattern, num_epochs, batch_size, mode):
 
 
 def input_fn(files_name_pattern,
-             num_epochs=None,
-             batch_size=200,
-             mode=tf.estimator.ModeKeys.TRAIN,
-             input_format=config_key('model.input-format'),
+             num_epochs,
+             batch_size,
+             mode,
+             input_format,
              **kwargs):
     """
     General input function which parses csv, json, or tfrecords.
