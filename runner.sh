@@ -25,9 +25,9 @@ elif [[ ${1} == "tune" ]]; then
         --stream-logs \
         --scale-tier=${SCALE_TIER} \
         --config=${HPTUNING_CONFIG} \
-        --job-dir=${GCS_JOB_DIR} \
-        --module-name=elo.task \
-        --package-path=elo/ \
+        --job-dir=${GCS_BUCKET}/jobs \
+        --module-name=${SRC_PATH}.task \
+        --package-path=${SRC_PATH}/ \
         --region=${REGION}
 
 # Train on processed data.
@@ -36,15 +36,15 @@ elif [[ ${1} == "train" ]]; then
     if [[ ${EXECUTOR} == "local" ]]; then
         # Run ML Engine training locally
         gcloud ml-engine local train \
-            --package-path src \
-            --module-name src.task
+            --package-path ${SRC_PATH} \
+            --module-name ${SRC_PATH}.task
 
-     else
+    else
         # Run ML Engine training in the Google Cloud.
         gcloud ml-engine jobs submit training \
             ${JOB_NAME} \
-            --module-name src.task
-     fi
+            --module-name ${SRC_PATH}.task
+    fi
 
 
 # Predict on created model.
@@ -54,19 +54,19 @@ elif [[ ${1} == "predict" ]]; then
     if [[ ${EXECUTOR} == "local" ]]; then
         # Run ML Engine prediction locally. Retrieves the latest model from the data directory.
         gcloud ml-engine local predict \
-            --model-dir=`ls -d ./models/export/src/*/ | tail -n 1` \
+            --model-dir=`ls -d ./models/export/${SRC_PATH}/*/ | tail -n 1` \
             --json-instances=data/processed/test.json \
             | sed -E 's/(\[|\])//g' | sed -E 's/(  )+/,/g' > data/predictions/predictions-out-${DATE}.csv
 
-     else
+    else
         # Run ML Engine prediction in the Google Cloud.
         gcloud ml-engine jobs submit prediction \
             ${JOB_NAME} \
             --model=elo \
             --data-format=text \
-            --input-paths=gs://some-bucket/data/processed/test.json \
-            --output-path=gs://some-bucket/data/prediction \
+            --input-paths=${GCS_BUCKET}/data/processed/test.json \
+            --output-path=${GCS_BUCKET}/data/prediction \
             --region=${REGION}
-     fi
+    fi
 
 fi
