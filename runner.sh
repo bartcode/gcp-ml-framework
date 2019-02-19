@@ -16,7 +16,7 @@ fi
 # Process data (starts Beam pipeline).
 if [[ ${1} == "process" ]] | [[ ${1} == "preprocess" ]]; then
 
-    ${PYTHON} -m src.preprocess
+    ${PYTHON} -m ${SRC_PATH}.preprocess
 
 # Tune hyperparameters
 elif [[ ${1} == "tune" ]]; then
