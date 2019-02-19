@@ -4,7 +4,7 @@ source ./env.sh
 
 PYTHON=venv/bin/python
 
-JOB_NAME=elo_predict_${DATE}
+JOB_NAME=prediction_${DATE}
 
 if [[ ${1} == "cloud" ]]; then
     export EXECUTOR=cloud
