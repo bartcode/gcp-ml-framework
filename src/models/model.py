@@ -3,51 +3,16 @@ Create an estimator.
 """
 from __future__ import print_function
 
-import json
-import os
-
 import tensorflow as tf
 
+from ..models.train_eval import metric_rmse
 from ..utilities.config import config_key
 from ..features.model import create_wide_and_deep_columns
-from ..data.input import input_fn, json_serving_input_fn
-
-
-def get_session_config():
-    """
-    Determines tf.ConfigProto from environment variables.
-    :return: TensorFlow configuration (tf.ConfigProto).
-    """
-    tf_config = json.loads(os.environ.get('TF_CONFIG', '{}'))
-
-    try:
-        if tf_config['task']['type'] == 'master':
-            # The master communicates with itself
-            # and the ps (parameter server).
-            return tf.ConfigProto(device_filters=['/job:ps', '/job:master'])
-        elif tf_config['task']['type'] == 'worker':
-            return tf.ConfigProto(device_filters=['/job:ps', '/job:worker/task:%d' % tf_config['task']['index']])
-    except KeyError:
-        pass
-
-    return tf.ConfigProto()
-
-
-def metric_rmse(labels, predictions):
-    """
-    Determine Root Mean Squared Error (RMSE).
-    :param labels: Labels
-    :param predictions: Predictions
-    :return: TF Metric
-    """
-    return {
-        'rmse': tf.metrics.root_mean_squared_error(labels, predictions['predictions'])
-    }
 
 
 def build_estimator(config, hidden_units=None):
     """
-    Build estimator
+    Build estimator. This could be any model.
     :param config: Configuration of estimator.
     :param hidden_units: Layers of the DNN.
     :return: DNNLinearCombinedRegressor.
@@ -71,52 +36,3 @@ def build_estimator(config, hidden_units=None):
     estimator = tf.contrib.estimator.add_metrics(estimator, metric_rmse)
 
     return estimator
-
-
-def train_and_evaluate(args):
-    """
-    Run training and evaluate.
-    :param args: Arguments for model
-    :return: train_and_evaluate
-    """
-    tf.logging.set_verbosity(args.verbosity)
-
-    train_spec = tf.estimator.TrainSpec(
-        lambda: input_fn(args.train_files,
-                         num_epochs=args.num_epochs,
-                         batch_size=args.train_batch_size,
-                         mode=tf.estimator.ModeKeys.TRAIN,
-                         input_format=args.input_format),
-        max_steps=args.train_steps
-    )
-
-    exporter = tf.estimator.FinalExporter(config_key('model.name'), json_serving_input_fn)
-
-    eval_spec = tf.estimator.EvalSpec(
-        lambda: input_fn(args.eval_files,
-                         num_epochs=args.num_epochs,
-                         batch_size=args.eval_batch_size,
-                         mode=tf.estimator.ModeKeys.EVAL,
-                         input_format=args.input_format),
-        steps=args.eval_steps,
-        exporters=[exporter],
-        name='eval',
-        throttle_secs=30  # Seconds until next evaluation.
-    )
-
-    run_config = tf.estimator.RunConfig(
-        session_config=get_session_config(),
-        save_checkpoints_secs=30,
-        save_summary_steps=5000,
-        keep_checkpoint_max=5
-    ).replace(model_dir=os.path.join(args.job_dir, config_key('model.name')))
-
-    estimator = build_estimator(
-        config=run_config,
-        hidden_units=[
-            max(2, int(args.first_layer_size * args.scale_factor ** i))
-            for i in range(args.num_layers)
-        ]
-    )
-
-    tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)

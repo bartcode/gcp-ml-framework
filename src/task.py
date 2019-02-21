@@ -5,7 +5,7 @@ import argparse
 import json
 import os
 
-from .models.model import train_and_evaluate
+from .models.train_eval import train_and_evaluate
 from .utilities import config_path, config_key
 
 

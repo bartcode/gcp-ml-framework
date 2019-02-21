@@ -4,6 +4,8 @@ Methods to read files.
 import itertools
 import json
 import os
+
+import tensorflow as tf
 import yaml
 
 
@@ -79,3 +81,23 @@ def config_path(*args):
         return path_bases[0]
 
     return path_bases
+
+
+def get_tensorflow_session_config():
+    """
+    Determines tf.ConfigProto from environment variables.
+    :return: TensorFlow configuration (tf.ConfigProto).
+    """
+    tf_config = json.loads(os.environ.get('TF_CONFIG', '{}'))
+
+    try:
+        if tf_config['task']['type'] == 'master':
+            # The master communicates with itself
+            # and the ps (parameter server).
+            return tf.ConfigProto(device_filters=['/job:ps', '/job:master'])
+        elif tf_config['task']['type'] == 'worker':
+            return tf.ConfigProto(device_filters=['/job:ps', '/job:worker/task:%d' % tf_config['task']['index']])
+    except KeyError:
+        pass
+
+    return tf.ConfigProto()
