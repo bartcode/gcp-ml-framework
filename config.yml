@@ -19,6 +19,10 @@ model:
   export-format: JSON
   input-format: csv # [csv, tfrecords]
   verbosity: DEBUG
+  recommender:
+    keys: userId
+    indices: movieId
+    values: rating
   label: y # Label column in data set.
   key: false # The identifier in the data set (false if not available).
 path:

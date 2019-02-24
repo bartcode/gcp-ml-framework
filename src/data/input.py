@@ -24,9 +24,23 @@ def _get_single_train_file():
         else glob(train_file_config)[0]
 
 
-def get_metadata():
+def get_headers(file_name=_get_single_train_file()):
+    """
+    Retrieves header columns of a file.
+    :param file_name: Path to file
+    :return: List of header names
+    """
+    dtypes = pd.read_csv(file_name, nrows=2, sep=config_key('path.field-delim')).dtypes
+
+    return dtypes.index.tolist() \
+        if dtypes.index.tolist() \
+        else list(range(len(dtypes)))
+
+
+def get_metadata(file_name=_get_single_train_file()):
     """
     Determines metadata of the input data.
+    :param file_name: Name of CSV file to parse.
     :return: DatasetMetadata
     """
 
@@ -55,7 +69,7 @@ def get_metadata():
         return dataset_metadata.DatasetMetadata(
             dataset_schema.from_feature_spec({
                 name: dtype_to_metadata(dtype)
-                for name, dtype in pd.read_csv(_get_single_train_file(),
+                for name, dtype in pd.read_csv(file_name,
                                                nrows=1000,
                                                sep=config_key('path.field-delim')).dtypes.to_dict().items()
             }))

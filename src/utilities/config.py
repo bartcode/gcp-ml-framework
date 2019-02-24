@@ -65,12 +65,16 @@ def config_path(*args):
         :param base_path: Base path to prepend.
         :return: List of paths prepended with the base path.
         """
+        cloud_path = config_key('cloud.bucket') \
+            if os.environ.get('EXECUTOR') == 'cloud' \
+            else './'
+
         if isinstance(items, list):
-            return [os.path.join(base_path, item)
+            return [os.path.join(cloud_path, base_path, item)
                     for item in items]
 
         # If the input wasn't a list, return a list with that single item.
-        return [items]
+        return [os.path.join(cloud_path, base_path, items)]
 
     paths = [config_key(path) for path in args]
 
