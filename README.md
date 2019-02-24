@@ -1,5 +1,5 @@
 # GCP ML Framework
-Framework for large scale data processing, model training, and prediction delivery
+Framework for large scale data processing, (DNN) model training, and prediction delivery
 on the Google Cloud Platform.
 
 ## Installation

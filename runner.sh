@@ -62,7 +62,7 @@ elif [[ ${1} == "predict" ]]; then
         # Run ML Engine prediction in the Google Cloud.
         gcloud ml-engine jobs submit prediction \
             ${JOB_NAME} \
-            --model=elo \
+            --model=${MODEL_NAME} \
             --data-format=text \
             --input-paths=${GCS_BUCKET}/data/processed/test.json \
             --output-path=${GCS_BUCKET}/data/prediction \

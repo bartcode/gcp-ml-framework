@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 SRC_PATH=src
+MODEL_NAME=model  # Should be same as config.yml (model.name)
 
 DATE=`date '+%Y%m%d_%H%M%S'`
 SCALE_TIER=BASIC
