@@ -1,0 +1,23 @@
+trainingInput:
+  hyperparameters:
+    goal: MAXIMIZE
+    hyperparameterMetricTag: rmse
+    maxTrials: 10
+    maxParallelTrials: 10
+    enableTrialEarlyStopping: True
+    params:
+      - parameterName: first-layer-size
+        type: INTEGER
+        minValue: 128
+        maxValue: 1024
+        scaleType: UNIT_LINEAR_SCALE
+      - parameterName: num-layers
+        type: INTEGER
+        minValue: 15
+        maxValue: 40
+        scaleType: UNIT_LINEAR_SCALE
+      - parameterName: scale-factor
+        type: DOUBLE
+        minValue: 0.1
+        maxValue: 1.0
+        scaleType: UNIT_REVERSE_LOG_SCALE
