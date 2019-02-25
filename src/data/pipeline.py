@@ -20,7 +20,7 @@ from tensorflow_transform.tf_metadata import dataset_schema
 
 from ..features.preprocess import preprocess_recommender
 from ..data.input import get_metadata, get_headers
-from ..utilities.config import config_key, config_path
+from ..utilities.config import config_key, config_path, cloud_execution
 
 
 def get_pipeline_options():
@@ -32,19 +32,19 @@ def get_pipeline_options():
 
     options = dict()
 
-    if os.environ.get('EXECUTOR') == 'cloud':
+    if cloud_execution():
         logging.info('Start running in the cloud...')
 
         options = dict(
             runner='DataflowRunner',
             job_name=('{project}-{timestamp}'.format(
-                project=config_key('gcp.project'), timestamp=datetime.now().strftime('%Y%m%d%H%M%S')
+                project=config_key('cloud.project'), timestamp=datetime.now().strftime('%Y%m%d%H%M%S')
             )),
             staging_location=config_path('path.staging'),
             temp_location=config_path('path.temp'),
-            region=config_key('gcp.region'),
-            project=config_key('gcp.project'),
-            zone=config_key('gcp.zone'),
+            region=config_key('cloud.region'),
+            project=config_key('cloud.project'),
+            zone=config_key('cloud.zone'),
             autoscaling_algorithm='THROUGHPUT_BASED',
             save_main_session=True,
             setup_file='./setup.py'
@@ -59,7 +59,7 @@ def pdebug(element):
     :param element: Element in pipeline to debug
     :return: Element
     """
-    if os.environ.get('EXECUTOR') != 'cloud':
+    if not cloud_execution():
         import pdb
         pdb.set_trace()
 

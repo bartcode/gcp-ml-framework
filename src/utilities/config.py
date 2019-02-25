@@ -9,6 +9,14 @@ import tensorflow as tf
 import yaml
 
 
+def cloud_execution():
+    """
+    Check whether the code is being executed in the cloud
+    :return: Boolean
+    """
+    return os.environ.get('EXECUTOR') == 'cloud'
+
+
 def load_config(file_name):
     """
     Load configuration file, either YAML or JSON.
@@ -21,6 +29,20 @@ def load_config(file_name):
     extension = file_base[file_base.rindex('.') + 1:].lower() \
         if '.' in file_base \
         else None
+
+    # If the code is being executed on the cloud, load the config file from the bucket as
+    # denoted in `env.sh`.
+    if cloud_execution():
+        import gcsfs
+        file_system = gcsfs.GCSFileSystem()
+        file_name = os.path.join(os.environ.get('GCS_BUCKET'), file_name.replace('./', ''))
+
+        with file_system.open(file_name, 'r') as file_stream:
+            if extension == 'json':
+                return json.loads(file_stream.read())
+            elif extension in ['yml', 'yaml']:
+                return yaml.load(file_stream.read())
+            return {}
 
     with open(file_name, 'r') as file_stream:
         if extension == 'json':
@@ -66,7 +88,7 @@ def config_path(*args):
         :return: List of paths prepended with the base path.
         """
         cloud_path = config_key('cloud.bucket') \
-            if os.environ.get('EXECUTOR') == 'cloud' \
+            if cloud_execution() \
             else './'
 
         if isinstance(items, list):

@@ -26,7 +26,7 @@ model:
   label: y # Label column in data set.
   key: false # The identifier in the data set (false if not available).
 path:
-  base: ./data/
+  base: data/
   external: external/
   intermediate: intermediate/
   processed: processed/
@@ -34,6 +34,7 @@ path:
   raw: raw/
   models: models/
   job: job/
+  temp: temp/
   field-delim: ","
   train-files:
     - processed/train.csv

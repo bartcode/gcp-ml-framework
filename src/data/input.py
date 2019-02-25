@@ -9,7 +9,7 @@ from tensorflow_transform.tf_metadata import metadata_io, dataset_metadata, data
 import pandas as pd
 from pandas.api.types import is_string_dtype  # , is_int64_dtype
 
-from ..utilities.config import config_key, config_path
+from ..utilities.config import config_key, config_path, cloud_execution
 
 
 def _get_single_train_file():
@@ -19,9 +19,14 @@ def _get_single_train_file():
     """
     train_file_config = config_path('path.train-files')
 
-    return glob(train_file_config[0])[0] \
+    if not cloud_execution():
+        return glob(train_file_config[0])[0] \
+            if isinstance(train_file_config, list) \
+            else glob(train_file_config)[0]
+
+    return train_file_config[0] \
         if isinstance(train_file_config, list) \
-        else glob(train_file_config)[0]
+        else train_file_config
 
 
 def get_headers(file_name=_get_single_train_file()):

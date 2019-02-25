@@ -6,7 +6,7 @@ PYTHON=venv/bin/python
 
 JOB_NAME=prediction_${DATE}
 
-if [[ ${1} == "cloud" ]]; then
+if [[ ${2} == "cloud" ]]; then
     export EXECUTOR=cloud
 else
     export EXECUTOR=local
