@@ -127,7 +127,6 @@ class DataPipeline(object):
         :param metadata: (Customer) metadata.
         :return: Either a PCollection (dictionaries) with a key or without a key.
         """
-        print(pcollection)
         metadata = get_metadata() \
             if metadata is None \
             else metadata

@@ -26,9 +26,7 @@ def load_config(file_name):
     file_base = os.path.basename(file_name)
 
     # Detect file extension
-    extension = file_base[file_base.rindex('.') + 1:].lower() \
-        if '.' in file_base \
-        else None
+    extension = file_base[file_base.rindex('.') + 1:].lower() if '.' in file_base else None
 
     # If the code is being executed on the cloud, load the config file from the bucket as
     # denoted in `env.sh`.
