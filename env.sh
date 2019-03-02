@@ -7,5 +7,5 @@ export DATE=`date '+%Y%m%d_%H%M%S'`
 export SCALE_TIER=BASIC
 export REGION=europe-west4
 
-export HPTUNING_CONFIG=./hyperparam.yaml
+export HPTUNING_CONFIG=./hyperparam.yml
 export GCS_BUCKET=gs://some-bucket/
