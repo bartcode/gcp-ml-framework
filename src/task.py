@@ -7,7 +7,7 @@ from .models.train_eval import train_and_evaluate
 
 def main():
     """
-    Main function which handles all arguments.
+    Direct execution of task to training and evaluation.
     :return: None
     """
     train_and_evaluate(get_arguments())
