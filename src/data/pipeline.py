@@ -10,13 +10,11 @@ from contextlib import contextmanager
 from datetime import datetime
 
 import apache_beam as beam
-import tensorflow_transform.beam as tft_beam
-import tensorflow as tf
-from apache_beam.io import tfrecordio
+from apache_beam import io
 from tensorflow_transform import coders
+import tensorflow_transform.beam as tft_beam
 from tensorflow_transform.beam.tft_beam_io import transform_fn_io
 from tensorflow_transform.coders import example_proto_coder
-from tensorflow_transform.tf_metadata import dataset_schema
 
 from ..features.preprocess import preprocess_recommender
 from ..data.input import get_metadata, get_headers
@@ -76,6 +74,24 @@ def partition_train_eval(*args):
     return int(random.uniform(0, 1) >= .8)
 
 
+@contextmanager
+def get_pipeline():
+    """
+    Create pipeline for Beam and automatically uses either configuration to run
+    on Dataflow or locally.
+    :return: Beam pipeline
+    """
+    pipeline_options = get_pipeline_options()
+
+    temporary_dir = pipeline_options['temp_location'] \
+        if 'temp_location' in pipeline_options \
+        else tempfile.mkdtemp()
+
+    with beam.Pipeline(options=beam.pipeline.PipelineOptions(flags=[], **pipeline_options)) as pipeline:
+        with tft_beam.Context(temp_dir=temporary_dir):
+            yield pipeline
+
+
 class DataPipeline(object):
     """
     Main class for a data pipeline.
@@ -86,18 +102,6 @@ class DataPipeline(object):
         Initialise pipeline and context.
         """
         pass
-
-    @contextmanager
-    def pipeline(self):
-        pipeline_options = get_pipeline_options()
-
-        temporary_dir = pipeline_options['temp_location'] \
-            if 'temp_location' in pipeline_options \
-            else tempfile.mkdtemp()
-
-        with beam.Pipeline(options=beam.pipeline.PipelineOptions(flags=[], **pipeline_options)) as pipeline:
-            with tft_beam.Context(temp_dir=temporary_dir):
-                yield pipeline
 
     @abstractmethod
     def execute(self):
@@ -137,11 +141,9 @@ class DataPipeline(object):
             delimiter=','
         )
 
-        decoded_collection = (
-                pcollection
-                | 'ReadData' >> beam.io.ReadFromText(file_name, skip_header_lines=1)
-                | 'ParseData' >> beam.Map(converter.decode)
-        )
+        decoded_collection = pcollection \
+                             | 'ReadData' >> beam.io.ReadFromText(file_name, skip_header_lines=1) \
+                             | 'ParseData' >> beam.Map(converter.decode)
 
         if key_column:
             return decoded_collection | 'ExtractKey' >> beam.Map(lambda x: (x[key_column], x))
@@ -177,19 +179,17 @@ class RecommenderPipeline(DataPipeline):
                 'values': [v['rating'] for v in value_list]
             }
 
-        return (
-                pcollection
-                | 'Create key-value pair' >> beam.Map(lambda x: (x[key], x))
-                | 'Group items' >> beam.GroupByKey()
-                | 'Reformat records' >> beam.Map(reformat_record, index_column=key)
-        )
+        return pcollection \
+               | 'Create key-value pair' >> beam.Map(lambda x: (x[key], x)) \
+               | 'Group items' >> beam.GroupByKey() \
+               | 'Reformat records' >> beam.Map(reformat_record, index_column=key)
 
     def execute(self):
         """
         Starts the data pipeline.
         :return: None
         """
-        with self.pipeline() as pipeline:
+        with get_pipeline() as pipeline:
             self.collect_data(pipeline)
 
     def collect_data(self, pipeline):
@@ -202,37 +202,40 @@ class RecommenderPipeline(DataPipeline):
         # Load metadata
         metadata = get_metadata(ratings)
 
-        raw_data = (
-                pipeline
-                | 'Read ratings' >> self.read_csv(file_name=ratings, metadata=metadata)
-        )
+        # pylint: disable=E1120
+        raw_data = pipeline | 'Read ratings' >> self.read_csv(file_name=ratings, metadata=metadata)
 
         # Transform
-        (transformed_data, transformed_metadata), transform_fn = (
-                (raw_data, metadata)
-                | tft_beam.AnalyzeAndTransformDataset(preprocess_recommender)
-        )
+        (transformed_data, transformed_metadata), transform_fn = \
+            (raw_data, metadata) \
+            | tft_beam.AnalyzeAndTransformDataset(preprocess_recommender)
 
-        _ = (transform_fn
-             | 'WriteTransformFn' >>
-             transform_fn_io.WriteTransformFn(os.path.join(config_path('path.processed'), 'transform_fn')))
+        _ = transform_fn \
+            | 'WriteTransformFn' >> transform_fn_io.WriteTransformFn(os.path.join(config_path('path.processed'),
+                                                                                  'transform_fn'))
+
+        _ = transformed_metadata \
+            | 'WriteRawMetadata' >> tft_beam.WriteMetadata(os.path.join(os.path.join(config_path('path.processed'),
+                                                                                     'transformed_metadata')), pipeline)
 
         # do a group-by to create users_for_item and items_for_user
         keys_for_indices = transformed_data | 'Group by indices' >> self.group_by_kind(key='indices')
         indices_for_keys = transformed_data | 'Group by keys' >> self.group_by_kind(key='keys')
 
-        output_schema = {
-            'keys': dataset_schema.ColumnSchema(tf.int64, [1], dataset_schema.FixedColumnRepresentation()),
-            'indices': dataset_schema.ColumnSchema(tf.int64, [], dataset_schema.ListColumnRepresentation()),
-            'values': dataset_schema.ColumnSchema(tf.float32, [], dataset_schema.ListColumnRepresentation())
-        }
+        # output_schema = {
+        #     'keys': dataset_schema.ColumnSchema(tf.int64, [1], dataset_schema.FixedColumnRepresentation()),
+        #     'indices': dataset_schema.ColumnSchema(tf.int64, [], dataset_schema.ListColumnRepresentation()),
+        #     'values': dataset_schema.ColumnSchema(tf.float32, [], dataset_schema.ListColumnRepresentation()),
+        # }
 
-        _ = keys_for_indices | 'Save keys for indices' >> tfrecordio.WriteToTFRecord(
-            os.path.join(config_path('path.processed'), 'keys_for_indices'),
-            coder=example_proto_coder.ExampleProtoCoder(dataset_schema.Schema(output_schema))
-        )
+        _ = keys_for_indices \
+            | 'Save keys for indices' >> io.tfrecordio.WriteToTFRecord(os.path.join(config_path('path.processed'),
+                                                                                    'keys_for_indices'),
+                                                                       coder=example_proto_coder.ExampleProtoCoder(
+                                                                           transformed_metadata.schema))
 
-        _ = indices_for_keys | 'Save indices for keys' >> tfrecordio.WriteToTFRecord(
-            os.path.join(config_key('path.processed'), 'indices_for_key'),
-            coder=example_proto_coder.ExampleProtoCoder(dataset_schema.Schema(output_schema))
-        )
+        _ = indices_for_keys \
+            | 'Save indices for keys' >> io.tfrecordio.WriteToTFRecord(os.path.join(config_key('path.processed'),
+                                                                                    'indices_for_key'),
+                                                                       coder=example_proto_coder.ExampleProtoCoder(
+                                                                           transformed_metadata.schema))

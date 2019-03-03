@@ -16,7 +16,9 @@ fi
 # Process data (starts Beam pipeline).
 if [[ ${1} == "process" ]] | [[ ${1} == "preprocess" ]]; then
 
-    ${PYTHON} -m ${SRC_PATH}.preprocess
+    ${PYTHON} -m ${SRC_PATH}.preprocess \
+            --execution ${EXECUTOR} \
+            --bucket ${GCS_BUCKET}
 
 # Tune hyperparameters
 elif [[ ${1} == "tune" ]]; then
@@ -37,13 +39,20 @@ elif [[ ${1} == "train" ]]; then
         # Run ML Engine training locally
         gcloud ml-engine local train \
             --package-path ${SRC_PATH} \
-            --module-name ${SRC_PATH}.task
+            --module-name ${SRC_PATH}.task \
+            -- \
+            --execution local \
+            --bucket ${GCS_BUCKET}
 
     else
         # Run ML Engine training in the Google Cloud.
         gcloud ml-engine jobs submit training \
             ${JOB_NAME} \
-            --module-name ${SRC_PATH}.task
+            --module-name ${SRC_PATH}.task \
+            -- \
+            --execution cloud \
+            --bucket ${GCS_BUCKET}
+
     fi
 
 

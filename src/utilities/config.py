@@ -8,13 +8,15 @@ import os
 import tensorflow as tf
 import yaml
 
+from .arguments import get_core_arguments
+
 
 def cloud_execution():
     """
     Check whether the code is being executed in the cloud
     :return: Boolean
     """
-    return os.environ.get('EXECUTOR') == 'cloud'
+    return get_core_arguments().execution == 'cloud'
 
 
 def load_config(file_name):
@@ -28,27 +30,31 @@ def load_config(file_name):
     # Detect file extension
     extension = file_base[file_base.rindex('.') + 1:].lower() if '.' in file_base else None
 
+    def read_from_file_stream(file_stream_object):
+        """
+        Read configuration file from file stream.
+        :param file_stream_object: File stream object
+        :return: Configuration dictionary
+        """
+        if extension == 'json':
+            return json.loads(file_stream_object.read())
+        elif extension in ['yml', 'yaml']:
+            return yaml.load(file_stream_object.read())
+        return {}
+
     # If the code is being executed on the cloud, load the config file from the bucket as
     # denoted in `env.sh`.
+    read_method = open
+
     if cloud_execution():
+        # The environment variables are empty when in the cloud.
+        file_name = os.path.join(get_core_arguments().get('bucket'), file_name.replace('./', ''))
+
         import gcsfs
-        file_system = gcsfs.GCSFileSystem()
-        file_name = os.path.join(os.environ.get('GCS_BUCKET'), file_name.replace('./', ''))
+        read_method = gcsfs.GCSFileSystem()
 
-        with file_system.open(file_name, 'r') as file_stream:
-            if extension == 'json':
-                return json.loads(file_stream.read())
-            elif extension in ['yml', 'yaml']:
-                return yaml.load(file_stream.read())
-            return {}
-
-    with open(file_name, 'r') as file_stream:
-        if extension == 'json':
-            return json.loads(file_stream.read())
-        elif extension in ['yml', 'yaml']:
-            return yaml.load(file_stream)
-
-    return {}
+    with read_method(file_name, 'r') as file_stream:
+        return read_from_file_stream(file_stream)
 
 
 def config_key(path_key, config=load_config('./config.yml')):

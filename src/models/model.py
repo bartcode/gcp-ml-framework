@@ -5,7 +5,6 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-from ..models.train_eval import metric_rmse
 from ..utilities.config import config_key
 from ..features.model import create_wide_and_deep_columns
 
@@ -36,3 +35,15 @@ def build_estimator(config, hidden_units=None):
     estimator = tf.contrib.estimator.add_metrics(estimator, metric_rmse)
 
     return estimator
+
+
+def metric_rmse(labels, predictions):
+    """
+    Determine Root Mean Squared Error (RMSE).
+    :param labels: Labels
+    :param predictions: Predictions
+    :return: TF Metric
+    """
+    return {
+        'rmse': tf.metrics.root_mean_squared_error(labels, predictions['predictions'])
+    }
