@@ -58,15 +58,3 @@ def train_and_evaluate(args):
     )
 
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
-
-
-def metric_rmse(labels, predictions):
-    """
-    Determine Root Mean Squared Error (RMSE).
-    :param labels: Labels
-    :param predictions: Predictions
-    :return: TF Metric
-    """
-    return {
-        'rmse': tf.metrics.root_mean_squared_error(labels, predictions['predictions'])
-    }

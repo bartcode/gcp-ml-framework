@@ -8,6 +8,16 @@ import os
 import tensorflow as tf
 import yaml
 
+from .arguments import get_core_arguments
+
+
+def cloud_execution():
+    """
+    Check whether the code is being executed in the cloud
+    :return: Boolean
+    """
+    return get_core_arguments().execution == 'cloud'
+
 
 def load_config(file_name):
     """
@@ -18,17 +28,33 @@ def load_config(file_name):
     file_base = os.path.basename(file_name)
 
     # Detect file extension
-    extension = file_base[file_base.rindex('.') + 1:].lower() \
-        if '.' in file_base \
-        else None
+    extension = file_base[file_base.rindex('.') + 1:].lower() if '.' in file_base else None
 
-    with open(file_name, 'r') as file_stream:
+    def read_from_file_stream(file_stream_object):
+        """
+        Read configuration file from file stream.
+        :param file_stream_object: File stream object
+        :return: Configuration dictionary
+        """
         if extension == 'json':
-            return json.loads(file_stream.read())
+            return json.loads(file_stream_object.read())
         elif extension in ['yml', 'yaml']:
-            return yaml.load(file_stream)
+            return yaml.load(file_stream_object.read())
+        return {}
 
-    return {}
+    # If the code is being executed on the cloud, load the config file from the bucket as
+    # denoted in `env.sh`.
+    read_method = open
+
+    if cloud_execution():
+        # The environment variables are empty when in the cloud.
+        file_name = os.path.join(get_core_arguments().get('bucket'), file_name.replace('./', ''))
+
+        import gcsfs
+        read_method = gcsfs.GCSFileSystem()
+
+    with read_method(file_name, 'r') as file_stream:
+        return read_from_file_stream(file_stream)
 
 
 def config_key(path_key, config=load_config('./config.yml')):
@@ -65,12 +91,16 @@ def config_path(*args):
         :param base_path: Base path to prepend.
         :return: List of paths prepended with the base path.
         """
+        cloud_path = config_key('cloud.bucket') \
+            if cloud_execution() \
+            else './'
+
         if isinstance(items, list):
-            return [os.path.join(base_path, item)
+            return [os.path.join(cloud_path, base_path, item)
                     for item in items]
 
         # If the input wasn't a list, return a list with that single item.
-        return [items]
+        return [os.path.join(cloud_path, base_path, items)]
 
     paths = [config_key(path) for path in args]
 

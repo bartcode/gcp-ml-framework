@@ -7,7 +7,7 @@ import tensorflow_transform as tft
 from ..utilities.config import config_key
 
 
-def preprocessor(element):
+def preprocessor_defaults(element):
     """
     Applies TensorFlow Transform methods to vectors.
     :param element: Input vectors.
@@ -33,3 +33,29 @@ def preprocessor(element):
             inputs_filtered[feature + '_z'] = tft.scale_to_z_score(element[feature])
 
     return inputs_filtered
+
+
+RECOMMENDER_COLUMNS = {
+    'keys': config_key('model.recommender.keys'),
+    'indices': config_key('model.recommender.indices'),
+    'values': config_key('model.recommender.values')
+}
+
+
+def preprocess_recommender(element):
+    """
+    Pre-processor for a recommender system.
+    :param element: Element to pre-process using TF Transform.
+    :return: Transformed inputs.
+    """
+    result = {
+        'keys': tf.cast(element[RECOMMENDER_COLUMNS['keys']], dtype=tf.int64),
+        'indices': tf.cast(element[RECOMMENDER_COLUMNS['indices']], dtype=tf.int64),
+        'values': tft.scale_to_z_score(element[RECOMMENDER_COLUMNS['values']])
+    }
+
+    # Cap the rating at 1.0
+    result['values'] = tf.where(result['values'] < tf.ones(tf.shape(result['values'])),
+                                result['values'], tf.ones(tf.shape(result['values'])))
+
+    return result

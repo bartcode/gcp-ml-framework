@@ -9,7 +9,7 @@ from tensorflow_transform.tf_metadata import metadata_io, dataset_metadata, data
 import pandas as pd
 from pandas.api.types import is_string_dtype  # , is_int64_dtype
 
-from ..utilities.config import config_key, config_path
+from ..utilities.config import config_key, config_path, cloud_execution
 
 
 def _get_single_train_file():
@@ -19,14 +19,33 @@ def _get_single_train_file():
     """
     train_file_config = config_path('path.train-files')
 
-    return glob(train_file_config[0])[0] \
+    if not cloud_execution():
+        return glob(train_file_config[0])[0] \
+            if isinstance(train_file_config, list) \
+            else glob(train_file_config)[0]
+
+    return train_file_config[0] \
         if isinstance(train_file_config, list) \
-        else glob(train_file_config)[0]
+        else train_file_config
 
 
-def get_metadata():
+def get_headers(file_name=_get_single_train_file()):
+    """
+    Retrieves header columns of a file.
+    :param file_name: Path to file
+    :return: List of header names
+    """
+    dtypes = pd.read_csv(file_name, nrows=2, sep=config_key('path.field-delim')).dtypes
+
+    return dtypes.index.tolist() \
+        if dtypes.index.tolist() \
+        else list(range(len(dtypes)))
+
+
+def get_metadata(file_name=_get_single_train_file()):
     """
     Determines metadata of the input data.
+    :param file_name: Name of CSV file to parse.
     :return: DatasetMetadata
     """
 
@@ -55,7 +74,7 @@ def get_metadata():
         return dataset_metadata.DatasetMetadata(
             dataset_schema.from_feature_spec({
                 name: dtype_to_metadata(dtype)
-                for name, dtype in pd.read_csv(_get_single_train_file(),
+                for name, dtype in pd.read_csv(file_name,
                                                nrows=1000,
                                                sep=config_key('path.field-delim')).dtypes.to_dict().items()
             }))

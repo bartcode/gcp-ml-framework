@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
-SRC_PATH=src
-MODEL_NAME=model  # Should be same as config.yml (model.name)
+export SRC_PATH=src
+export MODEL_NAME=model  # Should be same as config.yml (model.name)
 
-DATE=`date '+%Y%m%d_%H%M%S'`
-SCALE_TIER=BASIC
-REGION=europe-west4
+export DATE=`date '+%Y%m%d_%H%M%S'`
+export SCALE_TIER=BASIC
+export REGION=europe-west4
 
-HPTUNING_CONFIG=./hyperparam.yaml
-GCS_BUCKET=gs://some-bucket/jobs
+export HPTUNING_CONFIG=./hyperparam.yml
+export GCS_BUCKET=gs://some-bucket/
