@@ -92,6 +92,36 @@ def get_pipeline():
             yield pipeline
 
 
+@beam.ptransform_fn
+def read_csv(pcollection, file_name, key_column=None, metadata=None):
+    """
+    Reads a CSV file into the Beam pipeline.
+    :param pcollection: Beam pcollection.
+    :param file_name: Path to file.
+    :param key_column: Column to use as key.
+    :param metadata: (Customer) metadata.
+    :return: Either a PCollection (dictionaries) with a key or without a key.
+    """
+    metadata = get_metadata() \
+        if metadata is None \
+        else metadata
+
+    converter = coders.CsvCoder(
+        column_names=get_headers(file_name),
+        schema=metadata.schema,
+        delimiter=','
+    )
+
+    decoded_collection = pcollection \
+                         | 'ReadData' >> beam.io.ReadFromText(file_name, skip_header_lines=1) \
+                         | 'ParseData' >> beam.Map(converter.decode)
+
+    if key_column:
+        return decoded_collection | 'ExtractKey' >> beam.Map(lambda x: (x[key_column], x))
+
+    return decoded_collection
+
+
 class DataPipeline(object):
     """
     Main class for a data pipeline.
@@ -203,7 +233,7 @@ class RecommenderPipeline(DataPipeline):
         metadata = get_metadata(ratings)
 
         # pylint: disable=E1120
-        raw_data = pipeline | 'Read ratings' >> self.read_csv(file_name=ratings, metadata=metadata)
+        raw_data = pipeline | 'Read ratings' >> read_csv(file_name=ratings, metadata=metadata)
 
         # Transform
         (transformed_data, transformed_metadata), transform_fn = \
