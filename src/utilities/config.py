@@ -48,7 +48,7 @@ def load_config(file_name):
 
     if cloud_execution():
         # The environment variables are empty when in the cloud.
-        file_name = os.path.join(get_core_arguments().get('bucket'), file_name.replace('./', ''))
+        file_name = os.path.join(get_core_arguments().bucket, file_name.replace('./', ''))
 
         import gcsfs
         read_method = gcsfs.GCSFileSystem()
