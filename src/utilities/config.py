@@ -51,7 +51,7 @@ def load_config(file_name):
         file_name = os.path.join(get_core_arguments().bucket, file_name.replace('./', ''))
 
         import gcsfs
-        read_method = gcsfs.GCSFileSystem()
+        read_method = gcsfs.GCSFileSystem().open
 
     with read_method(file_name, 'r') as file_stream:
         return read_from_file_stream(file_stream)
