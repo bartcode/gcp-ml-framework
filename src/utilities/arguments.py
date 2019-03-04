@@ -63,7 +63,7 @@ def get_arguments():
     parser.add_argument(
         '--job-dir',
         help='GCS location to write checkpoints and export models.',
-        default=os.path.join(config_path('path.models'),
+        default=os.path.join(config_path('path.models', base_path=''),
                              json.loads(os.environ.get('TF_CONFIG', '{}')).get('task', {}).get('trial', ''))
 
     )

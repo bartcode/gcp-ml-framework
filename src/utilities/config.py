@@ -72,7 +72,7 @@ def config_key(path_key, config=load_config('./config.yml')):
     return config.get(path_key, None)
 
 
-def config_path(*args):
+def config_path(*args, **kwargs):
     """
     Join multiple paths from configuration and always use config['path']['base'] as base path.
     Use as follows:
@@ -80,6 +80,7 @@ def config_path(*args):
     config_path('model.train')
     ```
     :param args: Lists of keys to load.
+    :param kwargs: Keyword arguments. Currently available key: `base_path`. Which path to use as a base path.
     :return: Path to file
     """
 
@@ -104,7 +105,11 @@ def config_path(*args):
 
     paths = [config_key(path) for path in args]
 
-    path_bases = list(itertools.chain(*[add_base_path(path) for path in paths]))
+    path_bases = list(itertools.chain(
+        *[
+            add_base_path(path, base_path=kwargs.get('base_path', config_key('path.base')))
+            for path in paths
+        ]))
 
     # Return a single value if there's only one value to return.
     if len(path_bases) == 1:

@@ -19,14 +19,14 @@ def _get_single_train_file():
     """
     train_file_config = config_path('path.train-files')
 
-    if not cloud_execution():
-        return glob(train_file_config[0])[0] \
+    if cloud_execution():
+        return train_file_config[0] \
             if isinstance(train_file_config, list) \
-            else glob(train_file_config)[0]
+            else train_file_config
 
-    return train_file_config[0] \
+    return glob(train_file_config[0])[0] \
         if isinstance(train_file_config, list) \
-        else train_file_config
+        else glob(train_file_config)[0]
 
 
 def get_headers(file_name=_get_single_train_file()):
@@ -35,7 +35,7 @@ def get_headers(file_name=_get_single_train_file()):
     :param file_name: Path to file
     :return: List of header names
     """
-    dtypes = pd.read_csv(file_name, nrows=2, sep=config_key('path.field-delim')).dtypes
+    dtypes = pd.read_csv(file_name, nrows=100, sep=config_key('path.field-delim')).dtypes
 
     return dtypes.index.tolist() \
         if dtypes.index.tolist() \
