@@ -71,7 +71,7 @@ def get_arguments():
     parser.add_argument(
         '--staging-bucket',
         help='GCS staging location.',
-        default=os.path.join(config_key('cloud.bucket'), config_key('path.staging'))
+        default=config_key('path.staging')
     )
 
     parser.add_argument(
@@ -86,19 +86,19 @@ def get_arguments():
     parser.add_argument(
         '--train-files',
         help='Path to training file',
-        default=os.path.join(config_path('path.train-files'))
+        default=config_path('path.train-files')
     )
 
     parser.add_argument(
         '--eval-files',
         help='Path to evaluation file',
-        default=os.path.join(config_path('path.eval-files'))
+        default=config_path('path.eval-files')
     )
 
     parser.add_argument(
         '--test-files',
         help='Path to test file',
-        default=os.path.join(config_path('path.test-files'))
+        default=config_path('path.test-files')
     )
 
     parser.add_argument(
