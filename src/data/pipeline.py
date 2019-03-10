@@ -8,20 +8,25 @@ import tempfile
 from abc import abstractmethod
 from contextlib import contextmanager
 from datetime import datetime
+from typing import Any, Dict, Optional, Tuple
 
 import apache_beam as beam
 from apache_beam import io
+import tensorflow as tf
+from apache_beam.pvalue import PCollection
 from tensorflow_transform import coders
 import tensorflow_transform.beam as tft_beam
 from tensorflow_transform.beam.tft_beam_io import transform_fn_io
 from tensorflow_transform.coders import example_proto_coder
+from tensorflow_transform.tf_metadata import dataset_schema
+from tensorflow_transform.tf_metadata.dataset_metadata import DatasetMetadata
 
 from ..features.preprocess import preprocess_recommender
 from ..data.input import get_metadata, get_headers
 from ..utilities.config import config_key, config_path, cloud_execution
 
 
-def get_pipeline_options():
+def get_pipeline_options() -> Dict[str, Any]:
     """
     Get apache beam pipeline options
     :return: Dictionary
@@ -51,7 +56,7 @@ def get_pipeline_options():
     return options
 
 
-def pdebug(element):
+def pdebug(element: Any) -> Any:
     """
     Can be used in beam.Map() to see the current element in the pipeline (only when executed locally).
     :param element: Element in pipeline to debug
@@ -93,7 +98,8 @@ def get_pipeline():
 
 
 @beam.ptransform_fn
-def read_csv(pcollection, file_name, key_column=None, metadata=None):
+def read_csv(pcollection: PCollection, file_name: str, key_column: Optional[str] = None,
+             metadata: Optional[DatasetMetadata] = None) -> PCollection:
     """
     Reads a CSV file into the Beam pipeline.
     :param pcollection: Beam pcollection.
@@ -102,6 +108,8 @@ def read_csv(pcollection, file_name, key_column=None, metadata=None):
     :param metadata: (Customer) metadata.
     :return: Either a PCollection (dictionaries) with a key or without a key.
     """
+    logging.info('Reading CSV file: %s', file_name)
+
     metadata = get_metadata() \
         if metadata is None \
         else metadata
@@ -150,51 +158,25 @@ class DataPipeline(object):
         """
         return training_set | 'TrainTestSplit' >> beam.Partition(partition_train_eval, 2)
 
-    @staticmethod
-    @beam.ptransform_fn
-    def read_csv(pcollection, file_name, key_column=None, metadata=None):
-        """
-        Reads a CSV file into the Beam pipeline.
-        :param pcollection: Beam pcollection.
-        :param file_name: Path to file.
-        :param key_column: Column to use as key.
-        :param metadata: (Customer) metadata.
-        :return: Either a PCollection (dictionaries) with a key or without a key.
-        """
-        metadata = get_metadata() \
-            if metadata is None \
-            else metadata
-
-        converter = coders.CsvCoder(
-            column_names=get_headers(file_name),
-            schema=metadata.schema,
-            delimiter=','
-        )
-
-        decoded_collection = pcollection \
-                             | 'ReadData' >> beam.io.ReadFromText(file_name, skip_header_lines=1) \
-                             | 'ParseData' >> beam.Map(converter.decode)
-
-        if key_column:
-            return decoded_collection | 'ExtractKey' >> beam.Map(lambda x: (x[key_column], x))
-
-        return decoded_collection
-
 
 class RecommenderPipeline(DataPipeline):
     """
     Example of a pipeline for a recommender system.
+    Refer to: https://towardsdatascience.com/how-to-build-a-collaborative-filtering-
+                model-for-personalized-recommendations-using-tensorflow-and-b9a77dc1320
     """
+
     @staticmethod
     @beam.ptransform_fn
-    def group_by_kind(pcollection, key):
+    def group_by_kind(pcollection: PCollection, key: str) -> PCollection:
         """
         Groups the PCollection by the given key.
         :param pcollection: PCollection.
         :param key: String of key to group by.
         :return: Reformatted records.
         """
-        def reformat_record(element, index_column):
+
+        def reformat_record(element: Tuple[Any, Any], index_column: str) -> Dict[str, list]:
             """
             Reformat records such that each element contains a list of values.
             :param element: Key-value tuple.
@@ -206,7 +188,7 @@ class RecommenderPipeline(DataPipeline):
             return {
                 'keys': [key_name],
                 'indices': [v[index_column] for v in value_list],
-                'values': [v['rating'] for v in value_list]
+                'values': [v['values'] for v in value_list]
             }
 
         return pcollection \
@@ -222,7 +204,7 @@ class RecommenderPipeline(DataPipeline):
         with get_pipeline() as pipeline:
             self.collect_data(pipeline)
 
-    def collect_data(self, pipeline):
+    def collect_data(self, pipeline: PCollection):
         """
         Executes recommender pipeline.
         :return: None
@@ -252,20 +234,20 @@ class RecommenderPipeline(DataPipeline):
         keys_for_indices = transformed_data | 'Group by indices' >> self.group_by_kind(key='indices')
         indices_for_keys = transformed_data | 'Group by keys' >> self.group_by_kind(key='keys')
 
-        # output_schema = {
-        #     'keys': dataset_schema.ColumnSchema(tf.int64, [1], dataset_schema.FixedColumnRepresentation()),
-        #     'indices': dataset_schema.ColumnSchema(tf.int64, [], dataset_schema.ListColumnRepresentation()),
-        #     'values': dataset_schema.ColumnSchema(tf.float32, [], dataset_schema.ListColumnRepresentation()),
-        # }
+        output_coder = example_proto_coder.ExampleProtoCoder(dataset_schema.from_feature_spec({
+            'keys': tf.FixedLenFeature(shape=[1], dtype=tf.int64),
+            'indices': tf.VarLenFeature(dtype=tf.int64),
+            'values': tf.VarLenFeature(dtype=tf.float32)
+        }))
 
         _ = keys_for_indices \
             | 'Save keys for indices' >> io.tfrecordio.WriteToTFRecord(os.path.join(config_path('path.processed'),
                                                                                     'keys_for_indices'),
-                                                                       coder=example_proto_coder.ExampleProtoCoder(
-                                                                           transformed_metadata.schema))
+                                                                       coder=output_coder,
+                                                                       file_name_suffix='.tfrecords')
 
         _ = indices_for_keys \
-            | 'Save indices for keys' >> io.tfrecordio.WriteToTFRecord(os.path.join(config_key('path.processed'),
+            | 'Save indices for keys' >> io.tfrecordio.WriteToTFRecord(os.path.join(config_path('path.processed'),
                                                                                     'indices_for_key'),
-                                                                       coder=example_proto_coder.ExampleProtoCoder(
-                                                                           transformed_metadata.schema))
+                                                                       coder=output_coder,
+                                                                       file_name_suffix='.tfrecords')

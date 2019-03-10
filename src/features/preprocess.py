@@ -1,13 +1,15 @@
 """
 Methods that pre-process the data using TensorFlow Transform
 """
+from typing import Dict
+
 import tensorflow as tf
 import tensorflow_transform as tft
 
 from ..utilities.config import config_key
 
 
-def preprocessor_defaults(element):
+def preprocessor_defaults(element: Dict) -> Dict[str, tf.Tensor]:
     """
     Applies TensorFlow Transform methods to vectors.
     :param element: Input vectors.
@@ -42,7 +44,7 @@ RECOMMENDER_COLUMNS = {
 }
 
 
-def preprocess_recommender(element):
+def preprocess_recommender(element: Dict) -> Dict[str, tf.Tensor]:
     """
     Pre-processor for a recommender system.
     :param element: Element to pre-process using TF Transform.

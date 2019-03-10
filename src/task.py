@@ -5,7 +5,7 @@ from .utilities.arguments import get_arguments
 from .models.train_eval import train_and_evaluate
 
 
-def main():
+def main() -> None:
     """
     Direct execution of task to training and evaluation.
     :return: None

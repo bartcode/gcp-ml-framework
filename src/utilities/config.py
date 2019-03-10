@@ -4,6 +4,7 @@ Methods to read files.
 import itertools
 import json
 import os
+from typing import List, Union, Any, Dict
 
 import tensorflow as tf
 import yaml
@@ -11,7 +12,7 @@ import yaml
 from .arguments import get_core_arguments
 
 
-def cloud_execution():
+def cloud_execution() -> bool:
     """
     Check whether the code is being executed in the cloud
     :return: Boolean
@@ -19,7 +20,7 @@ def cloud_execution():
     return get_core_arguments().execution == 'cloud'
 
 
-def load_config(file_name):
+def load_config(file_name) -> Dict[str, Any]:
     """
     Load configuration file, either YAML or JSON.
     :param file_name: Path to file
@@ -30,7 +31,7 @@ def load_config(file_name):
     # Detect file extension
     extension = file_base[file_base.rindex('.') + 1:].lower() if '.' in file_base else None
 
-    def read_from_file_stream(file_stream_object):
+    def read_from_file_stream(file_stream_object) -> Dict[str, Any]:
         """
         Read configuration file from file stream.
         :param file_stream_object: File stream object
@@ -57,13 +58,17 @@ def load_config(file_name):
         return read_from_file_stream(file_stream)
 
 
-def config_key(path_key, config=load_config('./config.yml')):
+def config_key(path_key, config: Dict[str, Any] = None) -> Any:
     """
     Load key from config file.
     :param path_key: Dot-separated path to value in dictionary, such as: model.train
     :param config: Configuration dictionary.
     :return: Config value
     """
+    config = config \
+        if config \
+        else load_config('./config.yml')
+
     if '.' in path_key:
         base, sub_path = tuple(path_key.split('.', 1))
 
@@ -72,7 +77,7 @@ def config_key(path_key, config=load_config('./config.yml')):
     return config.get(path_key, None)
 
 
-def config_path(*args, **kwargs):
+def config_path(*args, **kwargs) -> Union[str, List[str]]:
     """
     Join multiple paths from configuration and always use config['path']['base'] as base path.
     Use as follows:
@@ -84,7 +89,7 @@ def config_path(*args, **kwargs):
     :return: Path to file
     """
 
-    def add_base_path(items, base_path=config_key('path.base')):
+    def add_base_path(items, base_path=config_key('path.base')) -> List[str]:
         """
         If the key in the configuration file leads to a list, the base path
         will be added to all of them.
@@ -118,7 +123,7 @@ def config_path(*args, **kwargs):
     return path_bases
 
 
-def get_tensorflow_session_config():
+def get_tensorflow_session_config() -> tf.ConfigProto:
     """
     Determines tf.ConfigProto from environment variables.
     :return: TensorFlow configuration (tf.ConfigProto).

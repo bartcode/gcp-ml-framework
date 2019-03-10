@@ -6,7 +6,7 @@ import json
 import os
 
 
-def _set_essential_arguments(parser):
+def _set_essential_arguments(parser) -> None:
     """
     Add essential arguments to an argument parser.
     :param parser: ArgumentParser instance
@@ -27,7 +27,7 @@ def _set_essential_arguments(parser):
     )
 
 
-def get_core_arguments():
+def get_core_arguments() -> argparse.Namespace:
     """
     Load arguments that are essential in order to get the script running.
     The reference to the working directory (and from which the configuration
@@ -42,7 +42,7 @@ def get_core_arguments():
     return parser.parse_args()
 
 
-def get_arguments():
+def get_arguments() -> argparse.Namespace:
     """
     Sets and loads arguments for the application.
     :return: Dictionary with arguments.

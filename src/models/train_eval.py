@@ -1,7 +1,9 @@
 """
 Training and evaluation methods.
 """
+import argparse
 import os
+from typing import Any, Tuple
 
 import tensorflow as tf
 
@@ -11,7 +13,7 @@ from ..utilities import config_key
 from ..utilities.config import get_tensorflow_session_config
 
 
-def train_and_evaluate(args):
+def train_and_evaluate(args: argparse.Namespace) -> Tuple[Any, Any]:
     """
     Run training and evaluate.
     :param args: Arguments for model

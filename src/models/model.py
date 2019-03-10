@@ -1,7 +1,7 @@
 """
 Create an estimator.
 """
-from __future__ import print_function
+from typing import Dict, Tuple
 
 import tensorflow as tf
 
@@ -9,7 +9,7 @@ from ..utilities.config import config_key
 from ..features.model import create_wide_and_deep_columns
 
 
-def build_estimator(config, hidden_units=None):
+def build_estimator(config: tf.estimator.RunConfig, hidden_units=None) -> tf.estimator.DNNLinearCombinedRegressor:
     """
     Build estimator. This could be any model.
     :param config: Configuration of estimator.
@@ -37,7 +37,7 @@ def build_estimator(config, hidden_units=None):
     return estimator
 
 
-def metric_rmse(labels, predictions):
+def metric_rmse(labels, predictions) -> Dict[str, Tuple]:
     """
     Determine Root Mean Squared Error (RMSE).
     :param labels: Labels

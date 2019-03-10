@@ -1,6 +1,8 @@
 """
 Determine features for the model.
 """
+from typing import List, Tuple
+
 import tensorflow as tf
 from tensorflow_transform.tf_metadata import dataset_schema
 
@@ -8,7 +10,7 @@ from ..data.input import get_metadata
 from ..utilities.config import config_key
 
 
-def create_wide_and_deep_columns():
+def create_wide_and_deep_columns() -> Tuple[List, List]:
     """
     Create tuple of wide and deep columns respectively.
     :return: Tuple of wide and deep columns
