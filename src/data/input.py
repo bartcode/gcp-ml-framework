@@ -3,53 +3,62 @@ Contains methods that transform the data in such a way that it becomes
 input for a model.
 """
 from glob import glob
+from typing import List
 
 import tensorflow as tf
 from tensorflow_transform.tf_metadata import metadata_io, dataset_metadata, dataset_schema
+from tensorflow_transform.tf_metadata.dataset_metadata import DatasetMetadata
 import pandas as pd
 from pandas.api.types import is_string_dtype  # , is_int64_dtype
 
 from ..utilities.config import config_key, config_path, cloud_execution
 
 
-def _get_single_train_file():
+def _get_single_train_file() -> str:
     """
     Obtain a single file path used for training.
     :return: File path
     """
     train_file_config = config_path('path.train-files')
 
-    if not cloud_execution():
-        return glob(train_file_config[0])[0] \
+    if cloud_execution():
+        return train_file_config[0] \
             if isinstance(train_file_config, list) \
-            else glob(train_file_config)[0]
+            else train_file_config
 
-    return train_file_config[0] \
+    return glob(train_file_config[0])[0] \
         if isinstance(train_file_config, list) \
-        else train_file_config
+        else glob(train_file_config)[0]
 
 
-def get_headers(file_name=_get_single_train_file()):
+def get_headers(file_name: str = None) -> List[str]:
     """
     Retrieves header columns of a file.
     :param file_name: Path to file
     :return: List of header names
     """
-    dtypes = pd.read_csv(file_name, nrows=2, sep=config_key('path.field-delim')).dtypes
+    file_name = file_name \
+        if file_name \
+        else _get_single_train_file()
+
+    dtypes = pd.read_csv(file_name, nrows=100, sep=config_key('path.field-delim')).dtypes
 
     return dtypes.index.tolist() \
         if dtypes.index.tolist() \
         else list(range(len(dtypes)))
 
 
-def get_metadata(file_name=_get_single_train_file()):
+def get_metadata(file_name: str = None) -> DatasetMetadata:
     """
     Determines metadata of the input data.
     :param file_name: Name of CSV file to parse.
     :return: DatasetMetadata
     """
+    file_name = file_name \
+        if file_name \
+        else _get_single_train_file()
 
-    def dtype_to_metadata(dtype):
+    def dtype_to_metadata(dtype) -> tf.FixedLenFeature:
         """
         Converts Pandas Dataframe dtype to TF dataset metadata.
         :param dtype: Pandas dtype.
@@ -84,14 +93,13 @@ def get_metadata(file_name=_get_single_train_file()):
         )
 
 
-def input_fn_csv(files_name_pattern, num_epochs, batch_size, mode, **kwargs):
+def input_fn_csv(files_name_pattern: str, num_epochs: int, batch_size: int, mode: str, **kwargs):
     """
     Input functions which parses CSV files.
     :param files_name_pattern: File name to TFRecords.
     :param num_epochs: Number of epochs.
     :param batch_size: Batch size.
     :param mode: Input function mode
-    :param headers: Headers to use for the data.
     :return: features and label
     """
 

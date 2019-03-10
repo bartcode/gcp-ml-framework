@@ -6,7 +6,7 @@ import json
 import os
 
 
-def _set_essential_arguments(parser):
+def _set_essential_arguments(parser) -> None:
     """
     Add essential arguments to an argument parser.
     :param parser: ArgumentParser instance
@@ -27,7 +27,7 @@ def _set_essential_arguments(parser):
     )
 
 
-def get_core_arguments():
+def get_core_arguments() -> argparse.Namespace:
     """
     Load arguments that are essential in order to get the script running.
     The reference to the working directory (and from which the configuration
@@ -42,7 +42,7 @@ def get_core_arguments():
     return parser.parse_args()
 
 
-def get_arguments():
+def get_arguments() -> argparse.Namespace:
     """
     Sets and loads arguments for the application.
     :return: Dictionary with arguments.
@@ -63,7 +63,7 @@ def get_arguments():
     parser.add_argument(
         '--job-dir',
         help='GCS location to write checkpoints and export models.',
-        default=os.path.join(config_path('path.models'),
+        default=os.path.join(config_path('path.models', base_path=''),
                              json.loads(os.environ.get('TF_CONFIG', '{}')).get('task', {}).get('trial', ''))
 
     )
@@ -71,7 +71,7 @@ def get_arguments():
     parser.add_argument(
         '--staging-bucket',
         help='GCS staging location.',
-        default=os.path.join(config_key('cloud.bucket'), config_key('path.staging'))
+        default=config_key('path.staging')
     )
 
     parser.add_argument(
@@ -86,19 +86,19 @@ def get_arguments():
     parser.add_argument(
         '--train-files',
         help='Path to training file',
-        default=os.path.join(config_path('path.train-files'))
+        default=config_path('path.train-files')
     )
 
     parser.add_argument(
         '--eval-files',
         help='Path to evaluation file',
-        default=os.path.join(config_path('path.eval-files'))
+        default=config_path('path.eval-files')
     )
 
     parser.add_argument(
         '--test-files',
         help='Path to test file',
-        default=os.path.join(config_path('path.test-files'))
+        default=config_path('path.test-files')
     )
 
     parser.add_argument(
