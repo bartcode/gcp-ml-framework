@@ -50,7 +50,8 @@ def get_pipeline_options() -> Dict[str, Any]:
             zone=config_key('cloud.zone'),
             autoscaling_algorithm='THROUGHPUT_BASED',
             save_main_session=True,
-            setup_file='./setup.py'
+            setup_file='./setup.py',
+            experiments=['ignore_py3_minor_version'],
         )
 
     return options
