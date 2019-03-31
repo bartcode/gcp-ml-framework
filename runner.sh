@@ -59,7 +59,7 @@ elif [[ ${1} == "train" ]]; then
 # Predict on created model.
 elif [[ ${1} == "predict" ]]; then
 
-    # TODO: The directories below are still hardcoded. Values from config.yaml should be used.
+    # TODO: The directories below are still hardcoded. Values from config.yml should be used.
     if [[ ${EXECUTOR} == "local" ]]; then
         # Run ML Engine prediction locally. Retrieves the latest model from the data directory.
         gcloud ml-engine local predict \

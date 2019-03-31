@@ -40,7 +40,7 @@ def load_config(file_name) -> Dict[str, Any]:
         if extension == 'json':
             return json.loads(file_stream_object.read())
         elif extension in ['yml', 'yaml']:
-            return yaml.load(file_stream_object.read())
+            return yaml.load(file_stream_object.read(), Loader=yaml.SafeLoader)
         return {}
 
     # If the code is being executed on the cloud, load the config file from the bucket as

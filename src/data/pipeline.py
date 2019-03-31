@@ -11,18 +11,18 @@ from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
 import apache_beam as beam
-from apache_beam import io
 import tensorflow as tf
-from apache_beam.pvalue import PCollection
-from tensorflow_transform import coders
 import tensorflow_transform.beam as tft_beam
+from apache_beam import io
+from apache_beam.coders import coders
+from apache_beam.pvalue import PCollection
 from tensorflow_transform.beam.tft_beam_io import transform_fn_io
 from tensorflow_transform.coders import example_proto_coder
 from tensorflow_transform.tf_metadata import dataset_schema
 from tensorflow_transform.tf_metadata.dataset_metadata import DatasetMetadata
 
-from ..features.preprocess import preprocess_recommender
 from ..data.input import get_metadata, get_headers
+from ..features.preprocess import preprocess_recommender
 from ..utilities.config import config_key, config_path, cloud_execution
 
 
@@ -50,7 +50,8 @@ def get_pipeline_options() -> Dict[str, Any]:
             zone=config_key('cloud.zone'),
             autoscaling_algorithm='THROUGHPUT_BASED',
             save_main_session=True,
-            setup_file='./setup.py'
+            setup_file='./setup.py',
+            experiments=['ignore_py3_minor_version'],
         )
 
     return options
@@ -110,9 +111,9 @@ def read_csv(pcollection: PCollection, file_name: str, key_column: Optional[str]
     """
     logging.info('Reading CSV file: %s', file_name)
 
-    metadata = get_metadata() \
-        if metadata is None \
-        else metadata
+    metadata = metadata \
+        if metadata \
+        else get_metadata()
 
     converter = coders.CsvCoder(
         column_names=get_headers(file_name),
@@ -130,7 +131,7 @@ def read_csv(pcollection: PCollection, file_name: str, key_column: Optional[str]
     return decoded_collection
 
 
-class DataPipeline(object):
+class DataPipeline:
     """
     Main class for a data pipeline.
     """
@@ -168,35 +169,37 @@ class RecommenderPipeline(DataPipeline):
 
     @staticmethod
     @beam.ptransform_fn
-    def group_by_kind(pcollection: PCollection, key: str) -> PCollection:
+    def group_by_kind(pcollection: PCollection, key: str, index: str) -> PCollection:
         """
         Groups the PCollection by the given key.
         :param pcollection: PCollection.
         :param key: String of key to group by.
+        :param index: String of key to use for index.
         :return: Reformatted records.
         """
-
-        def reformat_record(element: Tuple[Any, Any], index_column: str) -> Dict[str, list]:
-            """
-            Reformat records such that each element contains a list of values.
-            :param element: Key-value tuple.
-            :param index_column: Column to use as key.
-            :return: Record with three columns: keys, indices, values.
-            """
-            (key_name, value_list) = element
-
-            return {
-                'keys': [key_name],
-                'indices': [v[index_column] for v in value_list],
-                'values': [v['values'] for v in value_list]
-            }
 
         return pcollection \
                | 'Create key-value pair' >> beam.Map(lambda x: (x[key], x)) \
                | 'Group items' >> beam.GroupByKey() \
-               | 'Reformat records' >> beam.Map(reformat_record, index_column=key)
+               | 'Reformat records' >> beam.Map(RecommenderPipeline.reformat_record, index=index)
 
-    def execute(self):
+    @staticmethod
+    def reformat_record(element: Tuple[Any, Any], index: str) -> Dict[str, list]:
+        """
+        Reformat records such that each element contains a list of values.
+        :param element: Key-value tuple.
+        :param index: String of key to use for index.
+        :return: Record with three columns: keys, indices, values.
+        """
+        (key_name, value_list) = element
+
+        return {
+            'keys': [key_name],
+            'indices': [v[index] for v in value_list],
+            'values': [v['values'] for v in value_list]
+        }
+
+    def execute(self) -> None:
         """
         Starts the data pipeline.
         :return: None
@@ -204,7 +207,7 @@ class RecommenderPipeline(DataPipeline):
         with get_pipeline() as pipeline:
             self.collect_data(pipeline)
 
-    def collect_data(self, pipeline: PCollection):
+    def collect_data(self, pipeline: PCollection) -> None:
         """
         Executes recommender pipeline.
         :return: None
@@ -231,8 +234,8 @@ class RecommenderPipeline(DataPipeline):
                                                                                      'transformed_metadata')), pipeline)
 
         # do a group-by to create users_for_item and items_for_user
-        keys_for_indices = transformed_data | 'Group by indices' >> self.group_by_kind(key='indices')
-        indices_for_keys = transformed_data | 'Group by keys' >> self.group_by_kind(key='keys')
+        keys_for_indices = transformed_data | 'Group by indices' >> self.group_by_kind(key='indices', index='keys')
+        indices_for_keys = transformed_data | 'Group by keys' >> self.group_by_kind(key='keys', index='indices')
 
         output_coder = example_proto_coder.ExampleProtoCoder(dataset_schema.from_feature_spec({
             'keys': tf.FixedLenFeature(shape=[1], dtype=tf.int64),
