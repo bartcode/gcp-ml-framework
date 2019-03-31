@@ -5,11 +5,11 @@ input for a model.
 from glob import glob
 from typing import List
 
+import pandas as pd
 import tensorflow as tf
+from pandas.api.types import is_string_dtype  # , is_int64_dtype
 from tensorflow_transform.tf_metadata import metadata_io, dataset_metadata, dataset_schema
 from tensorflow_transform.tf_metadata.dataset_metadata import DatasetMetadata
-import pandas as pd
-from pandas.api.types import is_string_dtype  # , is_int64_dtype
 
 from ..utilities.config import config_key, config_path, cloud_execution
 

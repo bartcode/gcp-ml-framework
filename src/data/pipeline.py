@@ -14,8 +14,8 @@ import apache_beam as beam
 import tensorflow as tf
 import tensorflow_transform.beam as tft_beam
 from apache_beam import io
+from apache_beam.coders import coders
 from apache_beam.pvalue import PCollection
-from tensorflow_transform import coders
 from tensorflow_transform.beam.tft_beam_io import transform_fn_io
 from tensorflow_transform.coders import example_proto_coder
 from tensorflow_transform.tf_metadata import dataset_schema
@@ -111,9 +111,9 @@ def read_csv(pcollection: PCollection, file_name: str, key_column: Optional[str]
     """
     logging.info('Reading CSV file: %s', file_name)
 
-    metadata = get_metadata() \
-        if metadata is None \
-        else metadata
+    metadata = metadata \
+        if metadata \
+        else get_metadata()
 
     converter = coders.CsvCoder(
         column_names=get_headers(file_name),
@@ -178,24 +178,26 @@ class RecommenderPipeline(DataPipeline):
         :return: Reformatted records.
         """
 
-        def reformat_record(element: Tuple[Any, Any]) -> Dict[str, list]:
-            """
-            Reformat records such that each element contains a list of values.
-            :param element: Key-value tuple.
-            :return: Record with three columns: keys, indices, values.
-            """
-            (key_name, value_list) = element
-
-            return {
-                'keys': [key_name],
-                'indices': [v[index] for v in value_list],
-                'values': [v['values'] for v in value_list]
-            }
-
         return pcollection \
                | 'Create key-value pair' >> beam.Map(lambda x: (x[key], x)) \
                | 'Group items' >> beam.GroupByKey() \
-               | 'Reformat records' >> beam.Map(reformat_record)
+               | 'Reformat records' >> beam.Map(RecommenderPipeline.reformat_record, index=index)
+
+    @staticmethod
+    def reformat_record(element: Tuple[Any, Any], index: str) -> Dict[str, list]:
+        """
+        Reformat records such that each element contains a list of values.
+        :param element: Key-value tuple.
+        :param index: String of key to use for index.
+        :return: Record with three columns: keys, indices, values.
+        """
+        (key_name, value_list) = element
+
+        return {
+            'keys': [key_name],
+            'indices': [v[index] for v in value_list],
+            'values': [v['values'] for v in value_list]
+        }
 
     def execute(self) -> None:
         """
