@@ -12,9 +12,9 @@ from typing import Any, Dict, Optional, Tuple
 
 import apache_beam as beam
 import tensorflow as tf
+import tensorflow_transform as tft
 import tensorflow_transform.beam as tft_beam
 from apache_beam import io
-from apache_beam.coders import coders
 from apache_beam.pvalue import PCollection
 from tensorflow_transform.beam.tft_beam_io import transform_fn_io
 from tensorflow_transform.coders import example_proto_coder
@@ -115,7 +115,7 @@ def read_csv(pcollection: PCollection, file_name: str, key_column: Optional[str]
         if metadata \
         else get_metadata()
 
-    converter = coders.CsvCoder(
+    converter = tft.coders.CsvCoder(
         column_names=get_headers(file_name),
         schema=metadata.schema,
         delimiter=','
