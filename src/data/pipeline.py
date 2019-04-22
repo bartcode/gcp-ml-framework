@@ -3,71 +3,60 @@ Define pipeline methods.
 """
 import logging
 import os
+import pprint
 import random
 import tempfile
 from abc import abstractmethod
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict
 
 import apache_beam as beam
 import tensorflow as tf
-import tensorflow_transform as tft
 import tensorflow_transform.beam as tft_beam
 from apache_beam import io
-from apache_beam.pvalue import PCollection
+from apache_beam.options.pipeline_options import GoogleCloudOptions, StandardOptions, PipelineOptions, SetupOptions, \
+    DebugOptions
 from tensorflow_transform.beam.tft_beam_io import transform_fn_io
 from tensorflow_transform.coders import example_proto_coder
 from tensorflow_transform.tf_metadata import dataset_schema
-from tensorflow_transform.tf_metadata.dataset_metadata import DatasetMetadata
 
-from ..data.input import get_metadata, get_headers
+from .input import get_headers, get_metadata
 from ..features.preprocess import preprocess_recommender
-from ..utilities.config import config_key, config_path, cloud_execution
+from ..utilities.config import config_key, config_path
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
-def get_pipeline_options() -> Dict[str, Any]:
-    """
-    Get apache beam pipeline options
-    :return: Dictionary
-    """
-    logging.info('Running Beam pipeline...')
-
-    options = dict()
-
-    if cloud_execution():
-        logging.info('Start running in the cloud...')
-
-        options = dict(
-            runner='DataflowRunner',
-            job_name=('{project}-{timestamp}'.format(
-                project=config_key('cloud.project'), timestamp=datetime.now().strftime('%Y%m%d%H%M%S')
-            )),
-            staging_location=config_path('path.staging'),
-            temp_location=config_path('path.temp'),
-            region=config_key('cloud.region'),
-            project=config_key('cloud.project'),
-            zone=config_key('cloud.zone'),
-            autoscaling_algorithm='THROUGHPUT_BASED',
-            save_main_session=True,
-            setup_file='./setup.py',
-            experiments=['ignore_py3_minor_version'],
-        )
-
-    return options
-
-
-def pdebug(element: Any) -> Any:
+def pdebug(element):
     """
     Can be used in beam.Map() to see the current element in the pipeline (only when executed locally).
     :param element: Element in pipeline to debug
     :return: Element
     """
-    if not cloud_execution():
-        import pdb
-        pdb.set_trace()
+    import pdb
+    pdb.set_trace()
 
     return element
+
+
+def get_file_info(file_name, **kwargs):
+    """
+    Retrieves information of a file, which will be processed in the pipeline.
+    :param file_name: Path to file.
+    :param kwargs: Other keyword arguments.
+    :return: Dictionary with headers and metadata of specified file.
+    """
+    file_info = {
+        'file_name': file_name,
+        'headers': get_headers(file_name, config=kwargs.get('config')),
+        'metadata': get_metadata(file_name, config=kwargs.get('config'))
+    }
+
+    logger.info('Got file info for %s:\n%s', file_name, pprint.pformat(file_info, 4))
+
+    return file_info
 
 
 def partition_train_eval(*args):
@@ -80,50 +69,21 @@ def partition_train_eval(*args):
     return int(random.uniform(0, 1) >= .8)
 
 
-@contextmanager
-def get_pipeline():
-    """
-    Create pipeline for Beam and automatically uses either configuration to run
-    on Dataflow or locally.
-    :return: Beam pipeline
-    """
-    pipeline_options = get_pipeline_options()
-
-    temporary_dir = pipeline_options['temp_location'] \
-        if 'temp_location' in pipeline_options \
-        else tempfile.mkdtemp()
-
-    with beam.Pipeline(options=beam.pipeline.PipelineOptions(flags=[], **pipeline_options)) as pipeline:
-        with tft_beam.Context(temp_dir=temporary_dir):
-            yield pipeline
-
-
 @beam.ptransform_fn
-def read_csv(pcollection: PCollection, file_name: str, key_column: Optional[str] = None,
-             metadata: Optional[DatasetMetadata] = None) -> PCollection:
+def read_csv(pcollection, file_name, headers, key_column=None, **kwargs):
     """
     Reads a CSV file into the Beam pipeline.
     :param pcollection: Beam pcollection.
     :param file_name: Path to file.
+    :param headers: Headers of file to read.
     :param key_column: Column to use as key.
-    :param metadata: (Customer) metadata.
     :return: Either a PCollection (dictionaries) with a key or without a key.
     """
-    logging.info('Reading CSV file: %s', file_name)
-
-    metadata = metadata \
-        if metadata \
-        else get_metadata()
-
-    converter = tft.coders.CsvCoder(
-        column_names=get_headers(file_name),
-        schema=metadata.schema,
-        delimiter=','
-    )
+    logger.info('Reading CSV: %s', file_name)
 
     decoded_collection = pcollection \
                          | 'ReadData' >> beam.io.ReadFromText(file_name, skip_header_lines=1) \
-                         | 'ParseData' >> beam.Map(converter.decode)
+                         | 'Split' >> beam.Map(lambda x: dict(zip(headers, x.split(','))))
 
     if key_column:
         return decoded_collection | 'ExtractKey' >> beam.Map(lambda x: (x[key_column], x))
@@ -136,14 +96,14 @@ class DataPipeline:
     Main class for a data pipeline.
     """
 
-    def __init__(self):
+    def __init__(self, config):
         """
         Initialise pipeline and context.
         """
-        pass
+        self.config = config
 
     @abstractmethod
-    def execute(self):
+    def execute(self, pipeline):
         """
         Description of the pipeline.
         :return: None
@@ -160,16 +120,85 @@ class DataPipeline:
         return training_set | 'TrainTestSplit' >> beam.Partition(partition_train_eval, 2)
 
 
+class RecommenderCombiner(beam.CombineFn):
+    """
+    Combine elements of the recommender system.
+    """
+
+    def to_runner_api_parameter(self, unused_context):
+        pass
+
+    def add_input(self, accumulator, element, *args, **kwargs):
+        """
+
+        :param accumulator: Accumulator
+        :param element: Element to add
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        if not accumulator['keys']:
+            accumulator['keys'] = [element[kwargs['key']][0]] \
+                if isinstance(element[kwargs['key']], list) else [element[kwargs['key']]]
+
+        accumulator['indices'] += element[kwargs['index']] \
+            if isinstance(element[kwargs['index']], list) else [element[kwargs['index']]]
+
+        accumulator['values'] += element['values'] \
+            if isinstance(element['values'], list) else [element['values']]
+
+        return accumulator
+
+    def create_accumulator(self, *args, **kwargs):
+        """
+        Create accumulator
+        :param args: None
+        :param kwargs: None
+        :return: Empty accumulator dictionary.
+        """
+        return {
+            'keys': [],
+            'indices': [],
+            'values': []
+        }
+
+    def merge_accumulators(self, accumulators, *args, **kwargs):
+        """
+        Merges multiple accumulators
+        :param accumulators: List of accumulators
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        accumulated = self.create_accumulator(*args, **kwargs)
+
+        for accumulator in accumulators:
+            accumulated = self.add_input(accumulated, accumulator, key='keys', index='indices')
+
+        return accumulated
+
+    def extract_output(self, accumulator, *args, **kwargs):
+        """
+        Extracts output from accumulator
+        :param accumulator: Accumulator
+        :param args:
+        :param kwargs:
+        :return: Accumulator
+        """
+        return accumulator
+
+
 class RecommenderPipeline(DataPipeline):
     """
     Example of a pipeline for a recommender system.
     Refer to: https://towardsdatascience.com/how-to-build-a-collaborative-filtering-
                 model-for-personalized-recommendations-using-tensorflow-and-b9a77dc1320
     """
+    RECOMMENDER_COLUMNS = {}
 
     @staticmethod
     @beam.ptransform_fn
-    def group_by_kind(pcollection: PCollection, key: str, index: str) -> PCollection:
+    def group_by_kind(pcollection, key, index):
         """
         Groups the PCollection by the given key.
         :param pcollection: PCollection.
@@ -177,80 +206,96 @@ class RecommenderPipeline(DataPipeline):
         :param index: String of key to use for index.
         :return: Reformatted records.
         """
-
         return pcollection \
                | 'Create key-value pair' >> beam.Map(lambda x: (x[key], x)) \
-               | 'Group items' >> beam.GroupByKey() \
-               | 'Reformat records' >> beam.Map(RecommenderPipeline.reformat_record, index=index)
+               | 'CombineElements' >> beam.CombinePerKey(RecommenderCombiner(), key=key, index=index) \
+               | 'Retrieve values' >> beam.Map(lambda x: x[1])
 
-    @staticmethod
-    def reformat_record(element: Tuple[Any, Any], index: str) -> Dict[str, list]:
+    def rename_columns(self, element):
         """
-        Reformat records such that each element contains a list of values.
-        :param element: Key-value tuple.
-        :param index: String of key to use for index.
-        :return: Record with three columns: keys, indices, values.
+        Standardise names of columns for recommender system.
+        :param element:
+        :return:
         """
-        (key_name, value_list) = element
-
         return {
-            'keys': [key_name],
-            'indices': [v[index] for v in value_list],
-            'values': [v['values'] for v in value_list]
+            'keys': element[self.RECOMMENDER_COLUMNS['keys']],
+            'indices': element[self.RECOMMENDER_COLUMNS['indices']],
+            'values': element[self.RECOMMENDER_COLUMNS['values']]
         }
 
-    def execute(self) -> None:
+    def execute(self, pipeline):
         """
         Starts the data pipeline.
         :return: None
         """
-        with get_pipeline() as pipeline:
-            self.collect_data(pipeline)
+        pass
+        # ratings = get_file_info(os.path.join(config_path('path.raw'), 'ratings.csv'))
 
-    def collect_data(self, pipeline: PCollection) -> None:
-        """
-        Executes recommender pipeline.
-        :return: None
-        """
-        ratings = os.path.join(config_path('path.raw'), 'ratings.csv')
+        # ratings = {
+        #     'file_name': 'gs://gcp-ml-framework/data/raw/ratings.csv',
+        #     'headers': ['userId', 'movieId', 'rating', 'timestamp']
+        # }
 
-        # Load metadata
-        metadata = get_metadata(ratings)
+        # paths = {
+        #     'transform_fn': os.path.join(config_path('path.processed'), 'transform_fn'),
+        #     'metadata': os.path.join(os.path.join(config_path('path.processed'), 'transformed_metadata')),
+        #     'processed_kfi': os.path.join(config_path('path.processed'), 'keys_for_indices'),
+        #     'processed_ifk': os.path.join(config_path('path.processed'), 'indices_for_keys'),
+        # }
 
-        # pylint: disable=E1120
-        raw_data = pipeline | 'Read ratings' >> read_csv(file_name=ratings, metadata=metadata)
+        # RECOMMENDER_COLUMNS = {
+        #     'keys': config_key('model.recommender.keys'),
+        #     'indices': config_key('model.recommender.indices'),
+        #     'values': config_key('model.recommender.values')
+        # }
+
+        # logger.info('Writing to the following paths:\n%s', pprint.pformat(paths, 4))
+
+        # raw_data = pipeline \
+        #            | 'ReadData' >> beam.io.ReadFromText(ratings['file_name'], skip_header_lines=1) \
+        #            | 'Split' >> beam.Map(lambda x: x.split(',')) \
+        #            | 'Save keys for indices txt' >> io.WriteToText(paths['processed_kfi'])
+        # | 'Read ratings' >> read_csv(**ratings)
 
         # Transform
-        (transformed_data, transformed_metadata), transform_fn = \
-            (raw_data, metadata) \
-            | tft_beam.AnalyzeAndTransformDataset(preprocess_recommender)
+        # (transformed_data, transformed_metadata), transform_fn = \
+        #     (raw_data, ratings['metadata']) \
+        #     | tft_beam.AnalyzeAndTransformDataset(preprocess_recommender)
 
-        _ = transform_fn \
-            | 'WriteTransformFn' >> transform_fn_io.WriteTransformFn(os.path.join(config_path('path.processed'),
-                                                                                  'transform_fn'))
+        # transformed_data = raw_data
 
-        _ = transformed_metadata \
-            | 'WriteRawMetadata' >> tft_beam.WriteMetadata(os.path.join(os.path.join(config_path('path.processed'),
-                                                                                     'transformed_metadata')), pipeline)
+        # _ = transform_fn \
+        #     | 'WriteTransformFn' >> transform_fn_io.WriteTransformFn(paths['transform_fn'])
 
-        # do a group-by to create users_for_item and items_for_user
-        keys_for_indices = transformed_data | 'Group by indices' >> self.group_by_kind(key='indices', index='keys')
-        indices_for_keys = transformed_data | 'Group by keys' >> self.group_by_kind(key='keys', index='indices')
+        # _ = transformed_metadata \
+        #     | 'WriteRawMetadata' >> tft_beam.WriteMetadata(paths['metadata'], pipeline=pipeline)
 
-        output_coder = example_proto_coder.ExampleProtoCoder(dataset_schema.from_feature_spec({
-            'keys': tf.FixedLenFeature(shape=[1], dtype=tf.int64),
-            'indices': tf.VarLenFeature(dtype=tf.int64),
-            'values': tf.VarLenFeature(dtype=tf.float32)
-        }))
+        # # Do a group-by to create users_for_item and items_for_user
+        # keys_for_indices = transformed_data # \
+        #                    # | 'Create key-value pair' >> beam.Map(lambda x: (x['keys'], x))
+        #                    # | 'Group by indices' >> RecommenderPipeline.group_by_kind(key='indices', index='keys')
 
-        _ = keys_for_indices \
-            | 'Save keys for indices' >> io.tfrecordio.WriteToTFRecord(os.path.join(config_path('path.processed'),
-                                                                                    'keys_for_indices'),
-                                                                       coder=output_coder,
-                                                                       file_name_suffix='.tfrecords')
+        # indices_for_keys = transformed_data \
+        #                    | 'Group by keys' >> RecommenderPipeline.group_by_kind(key='keys', index='indices')
 
-        _ = indices_for_keys \
-            | 'Save indices for keys' >> io.tfrecordio.WriteToTFRecord(os.path.join(config_path('path.processed'),
-                                                                                    'indices_for_key'),
-                                                                       coder=output_coder,
-                                                                       file_name_suffix='.tfrecords')
+        # _ = keys_for_indices \
+        #     | 'Save keys for indices txt' >> io.WriteToText(paths['processed_kfi'], file_name_suffix='.txt')
+
+        # _ = indices_for_keys \
+        #     | 'Save indices for keys (txt)' >> io.WriteToText(paths['processed_ifk'], file_name_suffix='.txt')
+
+        # output_coder = example_proto_coder.ExampleProtoCoder(dataset_schema.from_feature_spec({
+        #     'keys': tf.FixedLenFeature(shape=[1], dtype=tf.int64),
+        #     'indices': tf.VarLenFeature(dtype=tf.int64),
+        #     'values': tf.VarLenFeature(dtype=tf.float32)
+        # }))
+
+        # _ = keys_for_indices \
+        #     | 'Save keys for indices' >> io.tfrecordio.WriteToTFRecord(paths['processed_kfi'],
+        #                                                                coder=output_coder,
+        #                                                                file_name_suffix='.tfrecords')
+        #
+        # _ = indices_for_keys \
+        #     | 'Save indices for keys' >> io.tfrecordio.WriteToTFRecord(paths['processed_ifk'],
+        #                                                                coder=output_coder,
+        #                                                                file_name_suffix='.tfrecords')
