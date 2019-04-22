@@ -48,5 +48,4 @@ def preprocess_recommender(element, recommender_columns):
         'keys': tf.cast(element[recommender_columns['keys']], dtype=tf.int64),
         'indices': tf.cast(element[recommender_columns['indices']], dtype=tf.int64),
         'values': element[recommender_columns['values']]
-        # 'values': tft.scale_to_0_1(element[RECOMMENDER_COLUMNS['values']])
     }
