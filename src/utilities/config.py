@@ -4,6 +4,7 @@ Methods to read files.
 import itertools
 import json
 import os
+from typing import Any, Dict, Union, List
 
 import tensorflow as tf
 import yaml
@@ -69,7 +70,7 @@ def config_path(*args, **kwargs):
         :return: List of paths prepended with the base path.
         """
         cloud_path = config_key('cloud.bucket', config=kwargs.get('config')) \
-            if kwargs.get('config') and kwargs.get('config').get('execution') == 'cloud' \
+            if kwargs.get('config', {}).get('execution') == 'cloud' \
             else './'
 
         if isinstance(items, list):
@@ -91,11 +92,8 @@ def config_path(*args, **kwargs):
     ))
 
     # Return a single value if there's only one value to return.
-    if len(path_bases) == 1 or kwargs.get('max_len') == 1:
+    if len(path_bases) == 1:
         return path_bases[0]
-
-    if kwargs.get('max_len'):
-        return path_bases[:int(kwargs.get('max_len'))]
 
     return path_bases
 
