@@ -3,25 +3,24 @@ Contains methods that transform the data in such a way that it becomes
 input for a model.
 """
 from glob import glob
-from typing import List
 
 import pandas as pd
 import tensorflow as tf
 from pandas.api.types import is_string_dtype  # , is_int64_dtype
 from tensorflow_transform.tf_metadata import metadata_io, dataset_metadata, dataset_schema
-from tensorflow_transform.tf_metadata.dataset_metadata import DatasetMetadata
 
-from ..utilities.config import config_key, config_path, cloud_execution
+from ..utilities.config import config_key, config_path
 
 
-def _get_single_train_file() -> str:
+def _get_single_train_file(**kwargs):
     """
     Obtain a single file path used for training.
+    :param kwargs: Other keyword arguments.
     :return: File path
     """
-    train_file_config = config_path('path.train-files')
+    train_file_config = config_path('path.train-files', config=kwargs.get('config'))
 
-    if cloud_execution():
+    if kwargs.get('config', {}).get('execution') == 'cloud':
         return train_file_config[0] \
             if isinstance(train_file_config, list) \
             else train_file_config
@@ -31,34 +30,29 @@ def _get_single_train_file() -> str:
         else glob(train_file_config)[0]
 
 
-def get_headers(file_name: str = None) -> List[str]:
+def get_headers(file_name, **kwargs):
     """
     Retrieves header columns of a file.
     :param file_name: Path to file
+    :param kwargs: Other keyword arguments.
     :return: List of header names
     """
-    file_name = file_name \
-        if file_name \
-        else _get_single_train_file()
-
-    dtypes = pd.read_csv(file_name, nrows=100, sep=config_key('path.field-delim')).dtypes
+    dtypes = pd.read_csv(file_name, nrows=5, sep=config_key('path.field-delim', config=kwargs.get('config'))).dtypes
 
     return dtypes.index.tolist() \
         if dtypes.index.tolist() \
         else list(range(len(dtypes)))
 
 
-def get_metadata(file_name: str = None) -> DatasetMetadata:
+def get_metadata(file_name, **kwargs):
     """
     Determines metadata of the input data.
     :param file_name: Name of CSV file to parse.
+    :param kwargs: Other keyword arguments.
     :return: DatasetMetadata
     """
-    file_name = file_name \
-        if file_name \
-        else _get_single_train_file()
 
-    def dtype_to_metadata(dtype) -> tf.FixedLenFeature:
+    def dtype_to_metadata(dtype):
         """
         Converts Pandas Dataframe dtype to TF dataset metadata.
         :param dtype: Pandas dtype.
@@ -74,8 +68,8 @@ def get_metadata(file_name: str = None) -> DatasetMetadata:
 
         return tf.FixedLenFeature([], tf.float32)
 
-    if config_key('model.input-format') == 'tfrecords':
-        return metadata_io.read_metadata(config_key('path.metadata'))
+    if config_key('model.input-format', kwargs.get('config')) == 'tfrecords':
+        return metadata_io.read_metadata(config_key('path.metadata', config=kwargs.get('config')))
 
     try:
         # It's actually best to define the metadata schema manually,
@@ -85,7 +79,8 @@ def get_metadata(file_name: str = None) -> DatasetMetadata:
                 name: dtype_to_metadata(dtype)
                 for name, dtype in pd.read_csv(file_name,
                                                nrows=1000,
-                                               sep=config_key('path.field-delim')).dtypes.to_dict().items()
+                                               sep=config_key('path.field-delim',
+                                                              config=kwargs.get('config'))).dtypes.to_dict().items()
             }))
     except KeyError:
         return dataset_metadata.DatasetMetadata(
@@ -93,7 +88,7 @@ def get_metadata(file_name: str = None) -> DatasetMetadata:
         )
 
 
-def input_fn_csv(files_name_pattern: str, num_epochs: int, batch_size: int, mode: str, **kwargs):
+def input_fn_csv(files_name_pattern, num_epochs, batch_size, mode, **kwargs):
     """
     Input functions which parses CSV files.
     :param files_name_pattern: File name to TFRecords.
@@ -114,7 +109,8 @@ def input_fn_csv(files_name_pattern: str, num_epochs: int, batch_size: int, mode
 
         return 0.  # dtype.type()
 
-    dtypes = pd.read_csv(_get_single_train_file(), nrows=1000, sep=config_key('path.field-delim')).dtypes
+    dtypes = pd.read_csv(_get_single_train_file(), nrows=1000,
+                         sep=config_key('path.field-delim', config=kwargs.get('config'))).dtypes
 
     default_values = [[csv_default_value(dtype)] for dtype in dtypes]
 
@@ -128,7 +124,7 @@ def input_fn_csv(files_name_pattern: str, num_epochs: int, batch_size: int, mode
         compression_type=kwargs.get('compression_type', None),
         buffer_size=kwargs.get('buffer_size', None),
         header=kwargs.get('header', True),
-        field_delim=config_key('path.field-delim'),
+        field_delim=config_key('path.field-delim', config=kwargs.get('config')),
         use_quote_delim=kwargs.get('use_quote_delim', True),
         na_value=kwargs.get('na_value', ''),
         select_cols=kwargs.get('select_cols', None)
@@ -191,7 +187,7 @@ def input_fn(files_name_pattern,
     iterator = input_ref.make_one_shot_iterator()
     features = iterator.get_next()
 
-    label = features.pop(config_key('model.label'))
+    label = features.pop(config_key('model.label', config=kwargs.get('config')))
 
     if mode == tf.estimator.ModeKeys.PREDICT:
         return features
@@ -199,18 +195,24 @@ def input_fn(files_name_pattern,
     return features, label
 
 
-def json_serving_input_fn():
+def json_serving_input_fn(**kwargs):
     """
     Build the serving inputs.
+    :param kwargs: Other keyword arguments.
+
     """
-    inputs = {}
-    label = config_key('model.label')
 
-    for feature, value in get_metadata().schema.column_schemas.items():
-        if feature != label:
-            inputs[feature] = tf.placeholder(
-                shape=[None],
-                dtype=value.domain.dtype
-            )
+    def return_fn():
+        inputs = {}
+        label = config_key('model.label', config=kwargs.get('config'))
 
-    return tf.estimator.export.ServingInputReceiver(inputs, inputs)
+        for feature, value in get_metadata().schema.column_schemas.items():
+            if feature != label:
+                inputs[feature] = tf.placeholder(
+                    shape=[None],
+                    dtype=value.domain.dtype
+                )
+
+        return tf.estimator.export.ServingInputReceiver(inputs, inputs)
+
+    return return_fn

@@ -1,7 +1,7 @@
 """
 Methods that pre-process the data using TensorFlow Transform
 """
-from typing import Dict
+from typing import Any, Dict
 
 import tensorflow as tf
 import tensorflow_transform as tft
@@ -9,7 +9,7 @@ import tensorflow_transform as tft
 from ..utilities.config import config_key
 
 
-def preprocessor_defaults(element: Dict) -> Dict[str, tf.Tensor]:
+def preprocessor_defaults(element):
     """
     Applies TensorFlow Transform methods to vectors.
     :param element: Input vectors.
@@ -37,27 +37,16 @@ def preprocessor_defaults(element: Dict) -> Dict[str, tf.Tensor]:
     return inputs_filtered
 
 
-RECOMMENDER_COLUMNS = {
-    'keys': config_key('model.recommender.keys'),
-    'indices': config_key('model.recommender.indices'),
-    'values': config_key('model.recommender.values')
-}
-
-
-def preprocess_recommender(element: Dict) -> Dict[str, tf.Tensor]:
+def preprocess_recommender(element, recommender_columns):
     """
     Pre-processor for a recommender system.
     :param element: Element to pre-process using TF Transform.
+    :param recommender_columns: Columns in recommender training set
     :return: Transformed inputs.
     """
-    result = {
-        'keys': tf.cast(element[RECOMMENDER_COLUMNS['keys']], dtype=tf.int64),
-        'indices': tf.cast(element[RECOMMENDER_COLUMNS['indices']], dtype=tf.int64),
-        'values': tft.scale_to_z_score(element[RECOMMENDER_COLUMNS['values']])
+    return {
+        'keys': tf.cast(element[recommender_columns['keys']], dtype=tf.int64),
+        'indices': tf.cast(element[recommender_columns['indices']], dtype=tf.int64),
+        'values': element[recommender_columns['values']]
+        # 'values': tft.scale_to_0_1(element[RECOMMENDER_COLUMNS['values']])
     }
-
-    # Cap the rating at 1.0
-    result['values'] = tf.where(result['values'] < tf.ones(tf.shape(result['values'])),
-                                result['values'], tf.ones(tf.shape(result['values'])))
-
-    return result

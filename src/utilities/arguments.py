@@ -6,43 +6,7 @@ import json
 import os
 
 
-def _set_essential_arguments(parser) -> None:
-    """
-    Add essential arguments to an argument parser.
-    :param parser: ArgumentParser instance
-    :return: None
-    """
-    parser.add_argument(
-        '--execution',
-        help='Method of execution. On the GCP or local.',
-        choices=['local', 'cloud'],
-        default='local'
-    )
-
-    parser.add_argument(
-        '--bucket',
-        help='Name of GCS bucket (excluding gs://).',
-        default=os.environ.get('GCS_BUCKET'),
-        type=str
-    )
-
-
-def get_core_arguments() -> argparse.Namespace:
-    """
-    Load arguments that are essential in order to get the script running.
-    The reference to the working directory (and from which the configuration
-    will be loaded) is an example.
-    :return: Dictionary of configuration parameters
-    """
-    # pylint: disable=C0103
-    parser = argparse.ArgumentParser()
-
-    _set_essential_arguments(parser)
-
-    return parser.parse_args()
-
-
-def get_arguments() -> argparse.Namespace:
+def get_arguments():
     """
     Sets and loads arguments for the application.
     :return: Dictionary with arguments.
@@ -178,7 +142,6 @@ def get_arguments() -> argparse.Namespace:
         default=config_key('model.verbosity').upper()
     )
 
-    # The essential arguments must be added to allow the script to run.
-    _set_essential_arguments(parser)
+    args, _ = parser.parse_known_args()
 
-    return parser.parse_args()
+    return args

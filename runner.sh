@@ -18,7 +18,6 @@ if [[ ${1} == "process" ]] | [[ ${1} == "preprocess" ]]; then
 
     ${PYTHON} -m ${SRC_PATH}.preprocess \
             --execution ${EXECUTOR} \
-            --bucket ${GCS_BUCKET}
 
 # Tune hyperparameters
 elif [[ ${1} == "tune" ]]; then

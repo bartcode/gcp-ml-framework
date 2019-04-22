@@ -3,7 +3,7 @@ Training and evaluation methods.
 """
 import argparse
 import os
-from typing import Any, Tuple
+from typing import Any, Tuple, Dict
 
 import tensorflow as tf
 
@@ -13,10 +13,11 @@ from ..utilities import config_key
 from ..utilities.config import get_tensorflow_session_config
 
 
-def train_and_evaluate(args: argparse.Namespace) -> Tuple[Any, Any]:
+def train_and_evaluate(args: argparse.Namespace, config: Dict[str, Any]) -> None:
     """
     Run training and evaluate.
     :param args: Arguments for model
+    :param config: Other configuration parameters.
     :return: train_and_evaluate
     """
     tf.logging.set_verbosity(args.verbosity)
@@ -30,7 +31,7 @@ def train_and_evaluate(args: argparse.Namespace) -> Tuple[Any, Any]:
         max_steps=args.train_steps
     )
 
-    exporter = tf.estimator.FinalExporter(config_key('model.name'), json_serving_input_fn)
+    exporter = tf.estimator.FinalExporter(config_key('model.name', config), json_serving_input_fn(config))
 
     eval_spec = tf.estimator.EvalSpec(
         lambda: input_fn(args.eval_files,
@@ -49,7 +50,7 @@ def train_and_evaluate(args: argparse.Namespace) -> Tuple[Any, Any]:
         save_checkpoints_secs=30,
         save_summary_steps=5000,
         keep_checkpoint_max=5
-    ).replace(model_dir=os.path.join(args.job_dir, config_key('model.name')))
+    ).replace(model_dir=os.path.join(args.job_dir, config_key('model.name', config)))
 
     estimator = build_estimator(
         config=run_config,

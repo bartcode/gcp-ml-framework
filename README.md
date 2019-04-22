@@ -4,7 +4,7 @@ on the Google Cloud Platform.
 
 ## Installation
 ```bash
-$ python3 -m venv venv
+$ virtualenv venv
 $ . venv/bin/activate
 $ pip install -r requirements.txt
 ```
@@ -15,4 +15,5 @@ $ ./runner.sh (preprocess|tune|train|predict) (local|cloud)
 ```
 
 ## Notes
-- Support for Apache Beam in Python 3 is still experimental.
+- Support for Apache Beam in Python 3 is still experimental and this project cannot be
+    used with Dataflow yet.
