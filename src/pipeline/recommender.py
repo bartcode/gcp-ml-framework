@@ -87,8 +87,8 @@ class RecommenderPipeline(DataPipeline, object):
     def __init__(self, pipeline, **kwargs):
         super(RecommenderPipeline, self).__init__(pipeline)
 
-        self.ratings = kwargs.get('ratings')
-        self.paths = kwargs.get('paths')
+        self.input = kwargs.get('input')
+        self.output= kwargs.get('output')
         self.config = kwargs.get('config', {})
 
     @staticmethod
@@ -117,18 +117,18 @@ class RecommenderPipeline(DataPipeline, object):
             'values': config_key('model.recommender.values', config=self.config)
         }
 
-        raw_data = self.pipeline | 'ReadData' >> read_csv(**self.ratings)
+        raw_data = self.pipeline | 'ReadData' >> read_csv(**self.input['ratings'])
 
         # Transform
         (transformed_data, transformed_metadata), transform_fn = \
-            (raw_data, self.ratings['metadata']) \
+            (raw_data, self.input['ratings']['metadata']) \
             | tft_beam.AnalyzeAndTransformDataset(lambda x: preprocess_recommender(x, recommender_columns))
 
         _ = transform_fn \
-            | 'WriteTransformFn' >> tft_beam.transform_fn_io.WriteTransformFn(self.paths['transform_fn'])
+            | 'WriteTransformFn' >> tft_beam.transform_fn_io.WriteTransformFn(self.output['transform_fn'])
 
         _ = transformed_metadata \
-            | 'WriteRawMetadata' >> tft_beam.WriteMetadata(self.paths['metadata'], pipeline=self.pipeline)
+            | 'WriteRawMetadata' >> tft_beam.WriteMetadata(self.output['metadata'], pipeline=self.pipeline)
 
         # Do a group-by to create users_for_item and items_for_user
         keys_for_indices = transformed_data \
@@ -138,11 +138,11 @@ class RecommenderPipeline(DataPipeline, object):
                            | 'Group by keys' >> RecommenderPipeline.group_by_kind(key='keys', index='indices')
 
         _ = keys_for_indices \
-            | 'Save keys for indices (txt-debug)' >> beam.io.WriteToText(self.paths['processed_kfi'],
+            | 'Save keys for indices (txt-debug)' >> beam.io.WriteToText(self.output['processed_kfi'],
                                                                          file_name_suffix='.txt')
 
         _ = indices_for_keys \
-            | 'Save indices for keys (txt-debug)' >> beam.io.WriteToText(self.paths['processed_ifk'],
+            | 'Save indices for keys (txt-debug)' >> beam.io.WriteToText(self.output['processed_ifk'],
                                                                          file_name_suffix='.txt')
 
         output_coder = example_proto_coder.ExampleProtoCoder(dataset_schema.from_feature_spec({
