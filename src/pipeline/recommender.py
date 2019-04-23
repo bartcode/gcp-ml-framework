@@ -4,10 +4,10 @@ import tensorflow_transform.beam as tft_beam
 from tensorflow_transform.coders import example_proto_coder
 from tensorflow_transform.tf_metadata import dataset_schema
 
-from src.utilities import config_key
 from ..data.pipeline import read_csv
 from ..features.preprocess import preprocess_recommender
 from ..pipeline.default import DataPipeline
+from ..utilities import config_key
 
 
 class RecommenderCombiner(beam.CombineFn):
@@ -88,7 +88,7 @@ class RecommenderPipeline(DataPipeline, object):
         super(RecommenderPipeline, self).__init__(pipeline)
 
         self.input = kwargs.get('input')
-        self.output= kwargs.get('output')
+        self.output = kwargs.get('output')
         self.config = kwargs.get('config', {})
 
     @staticmethod

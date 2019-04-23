@@ -1,7 +1,6 @@
 """
 Methods that pre-process the data using TensorFlow Transform
 """
-from typing import Any, Dict
 
 import tensorflow as tf
 import tensorflow_transform as tft
@@ -9,19 +8,20 @@ import tensorflow_transform as tft
 from ..utilities.config import config_key
 
 
-def preprocessor_defaults(element):
+def preprocessor_defaults(element, config):
     """
     Applies TensorFlow Transform methods to vectors.
     :param element: Input vectors.
+    :param config: Local configuration to use.
     :return: Transformed inputs.
     """
     inputs_filtered = {
-        config_key('model.key'): element[config_key('model.key')],
-        config_key('model.label'): element[config_key('model.label')]
+        config_key('model.key', config=config): element[config_key('model.key', config=config)],
+        config_key('model.label', config=config): element[config_key('model.label', config=config)]
     }
 
     for feature in element.keys():
-        if feature in [config_key('model.key'), config_key('model.label')]:
+        if feature in [config_key('model.key', config=config), config_key('model.label', config=config)]:
             continue
 
         if element[feature].dtype == tf.string:

@@ -25,6 +25,9 @@ model:
     values: rating
     top_items: 10
   label: y # Label column in data set.
+  columns:
+    categorical:
+      x1: 100
   key: false # The identifier in the data set (false if not available).
 path:
   base: data/

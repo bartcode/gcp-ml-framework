@@ -2,7 +2,7 @@ from abc import abstractmethod
 
 import apache_beam as beam
 
-from src.data.pipeline import partition_train_eval
+from ..data.pipeline import partition_train_eval
 
 
 class DataPipeline:

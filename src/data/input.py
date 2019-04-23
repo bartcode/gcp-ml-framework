@@ -109,7 +109,7 @@ def input_fn_csv(files_name_pattern, num_epochs, batch_size, mode, **kwargs):
 
         return 0.  # dtype.type()
 
-    dtypes = pd.read_csv(_get_single_train_file(), nrows=1000,
+    dtypes = pd.read_csv(_get_single_train_file(config=kwargs.get('config')), nrows=1000,
                          sep=config_key('path.field-delim', config=kwargs.get('config'))).dtypes
 
     default_values = [[csv_default_value(dtype)] for dtype in dtypes]

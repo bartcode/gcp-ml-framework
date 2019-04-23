@@ -1,33 +1,33 @@
 """
 Create an estimator.
 """
-from typing import Dict, Tuple
-
 import tensorflow as tf
 
-from ..utilities.config import config_key
 from ..features.model import create_wide_and_deep_columns
+from ..utilities.config import config_key
 
 
-def build_estimator(config: tf.estimator.RunConfig, hidden_units=None) -> tf.estimator.DNNLinearCombinedRegressor:
+def build_estimator(config, local_config, hidden_units=None):
     """
     Build estimator. This could be any model.
     :param config: Configuration of estimator.
+    :param local_config: Configuration from config.yml file in root of the project.
     :param hidden_units: Layers of the DNN.
     :return: DNNLinearCombinedRegressor.
     """
-    wide_feature_columns, deep_feature_columns = create_wide_and_deep_columns()
+    # TODO: Add config
+    wide_feature_columns, deep_feature_columns = create_wide_and_deep_columns(local_config)
 
     estimator = tf.estimator.DNNLinearCombinedRegressor(
         config=config,
         linear_feature_columns=wide_feature_columns,
         dnn_feature_columns=deep_feature_columns,
         dnn_hidden_units=hidden_units or [1024, 512, 256, 128, 64, 32],
-        dnn_dropout=config_key('model.dropout') or .25,
+        dnn_dropout=config_key('model.dropout', local_config) or .25,
     )
 
     # Forward key instances, such that predictions can be matched with a specific key.
-    key = config_key('model.key')
+    key = config_key('model.key', local_config)
 
     if key:
         estimator = tf.contrib.estimator.forward_features(estimator, key)
@@ -37,7 +37,7 @@ def build_estimator(config: tf.estimator.RunConfig, hidden_units=None) -> tf.est
     return estimator
 
 
-def metric_rmse(labels, predictions) -> Dict[str, Tuple]:
+def metric_rmse(labels, predictions):
     """
     Determine Root Mean Squared Error (RMSE).
     :param labels: Labels

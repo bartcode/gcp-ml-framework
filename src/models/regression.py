@@ -1,9 +1,7 @@
 """
 Training and evaluation methods.
 """
-import argparse
 import os
-from typing import Any, Tuple, Dict
 
 import tensorflow as tf
 
@@ -13,7 +11,7 @@ from ..utilities import config_key
 from ..utilities.config import get_tensorflow_session_config
 
 
-def train_and_evaluate(args: argparse.Namespace, config: Dict[str, Any]) -> None:
+def train_and_evaluate(args, config):
     """
     Run training and evaluate.
     :param args: Arguments for model
@@ -27,18 +25,20 @@ def train_and_evaluate(args: argparse.Namespace, config: Dict[str, Any]) -> None
                          num_epochs=args.num_epochs,
                          batch_size=args.train_batch_size,
                          mode=tf.estimator.ModeKeys.TRAIN,
-                         input_format=args.input_format),
+                         input_format=args.input_format,
+                         config=config),
         max_steps=args.train_steps
     )
 
-    exporter = tf.estimator.FinalExporter(config_key('model.name', config), json_serving_input_fn(config))
+    exporter = tf.estimator.FinalExporter(config_key('model.name', config), json_serving_input_fn(config=config))
 
     eval_spec = tf.estimator.EvalSpec(
         lambda: input_fn(args.eval_files,
                          num_epochs=args.num_epochs,
                          batch_size=args.eval_batch_size,
                          mode=tf.estimator.ModeKeys.EVAL,
-                         input_format=args.input_format),
+                         input_format=args.input_format,
+                         config=config),
         steps=args.eval_steps,
         exporters=[exporter],
         name='eval',
@@ -54,6 +54,7 @@ def train_and_evaluate(args: argparse.Namespace, config: Dict[str, Any]) -> None
 
     estimator = build_estimator(
         config=run_config,
+        local_config=config,
         hidden_units=[
             max(2, int(args.first_layer_size * args.scale_factor ** i))
             for i in range(args.num_layers)
