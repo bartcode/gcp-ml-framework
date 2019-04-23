@@ -28,18 +28,17 @@ if __name__ == '__main__':
     config = load_config('./config.yml')
     config['execution'] = args.execution
 
-    file_out = config['cloud']['bucket'] + 'data/processed/kfi_hc'
-    temp_dir = config['cloud']['bucket'] + 'temp'
-
-    paths = {
+    paths_output = {
         'transform_fn': os.path.join(config_path('path.processed', config=config), 'transform_fn'),
         'metadata': os.path.join(os.path.join(config_path('path.processed', config=config), 'transformed_metadata')),
         'processed_kfi': os.path.join(config_path('path.processed', config=config), 'keys_for_indices'),
         'processed_ifk': os.path.join(config_path('path.processed', config=config), 'indices_for_keys'),
     }
 
-    ratings = get_file_info(os.path.join(config_path('path.raw', config=config), 'ratings.csv'), config=config)
+    file_info = {
+        'ratings': get_file_info(os.path.join(config_path('path.raw', config=config), 'ratings.csv'), config=config)
+    }
 
     with get_pipeline(config) as pipeline:
-        recommender = RecommenderPipeline(pipeline, ratings=ratings, paths=paths, config=config)
+        recommender = RecommenderPipeline(pipeline, input=file_info, output=paths_output, config=config)
         recommender.execute()
