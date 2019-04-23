@@ -152,11 +152,11 @@ class RecommenderPipeline(DataPipeline, object):
         }))
 
         _ = keys_for_indices \
-            | 'Save keys for indices' >> beam.io.tfrecordio.WriteToTFRecord(self.paths['processed_kfi'],
+            | 'Save keys for indices' >> beam.io.tfrecordio.WriteToTFRecord(self.output['processed_kfi'],
                                                                             coder=output_coder,
                                                                             file_name_suffix='.tfrecords')
 
         _ = indices_for_keys \
-            | 'Save indices for keys' >> beam.io.tfrecordio.WriteToTFRecord(self.paths['processed_ifk'],
+            | 'Save indices for keys' >> beam.io.tfrecordio.WriteToTFRecord(self.output['processed_ifk'],
                                                                             coder=output_coder,
                                                                             file_name_suffix='.tfrecords')
