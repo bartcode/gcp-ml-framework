@@ -12,6 +12,8 @@ else
     export EXECUTOR=local
 fi
 
+export MODEL=${3:-regression}
+
 # Switch between main actions: (pre)process, tune, train, predict
 # Process data (starts Beam pipeline).
 if [[ ${1} == "process" ]] | [[ ${1} == "preprocess" ]]; then
@@ -41,7 +43,7 @@ elif [[ ${1} == "train" ]]; then
             --module-name ${SRC_PATH}.task \
             -- \
             --execution local \
-            --bucket ${GCS_BUCKET}
+            --model ${MODEL}
 
     else
         # Run ML Engine training in the Google Cloud.
@@ -50,7 +52,7 @@ elif [[ ${1} == "train" ]]; then
             --module-name ${SRC_PATH}.task \
             -- \
             --execution cloud \
-            --bucket ${GCS_BUCKET}
+            --model ${MODEL}
 
     fi
 

@@ -18,7 +18,7 @@ def get_arguments():
 
     # Input Arguments
     parser.add_argument(
-        '--base_directory',
+        '--base-directory',
         help='GCS file or local config to training data',
         nargs='+',
         default=config_key('path.base')

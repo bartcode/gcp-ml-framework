@@ -144,19 +144,20 @@ def input_fn_csv(files_name_pattern, num_epochs, batch_size, mode, **kwargs):
         .map(lambda *x: dict(zip(header_list, x)))  # Map list to dictionary.
 
 
-def input_fn_tfrecords(files_name_pattern, num_epochs, batch_size, mode):
+def input_fn_tfrecords(files_name_pattern, num_epochs, batch_size, mode, local_config):
     """
     Input functions which parses TFRecords.
     :param files_name_pattern: File name to TFRecords.
     :param num_epochs: Number of epochs.
     :param batch_size: Batch size.
     :param mode: Input function mode.
+    :param local_config: Configuration to use.
     :return: features and label.
     """
     return tf.data.experimental.make_batched_features_dataset(
         file_pattern=files_name_pattern,
         batch_size=batch_size,
-        features=get_metadata().schema.as_feature_spec(),
+        features=get_metadata(config_path('path.train-files', config=local_config, max_len=1)).schema.as_feature_spec(),
         reader=tf.data.TFRecordDataset,
         num_epochs=num_epochs,
         shuffle=True if mode == tf.estimator.ModeKeys.TRAIN else False,
