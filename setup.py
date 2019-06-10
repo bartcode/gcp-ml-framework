@@ -8,10 +8,7 @@ setup(
         'tensorflow',
         'apache-beam[gcp]',
         'tensorflow-transform',
-        'pandas',
-        'numpy',
         'pyyaml',
-        'gcsfs'
     ],
     packages=find_packages(),
     include_package_data=True,
