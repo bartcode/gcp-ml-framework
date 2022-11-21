@@ -1,5 +1,5 @@
 tensorflow_transform==0.13.0
 pandas==0.24.2
-tensorflow==2.4.0
+tensorflow==2.9.3
 apache_beam==2.13.0
 PyYAML==5.1.1
